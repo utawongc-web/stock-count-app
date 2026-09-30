@@ -586,6 +586,11 @@
 
   <script>
     // =====================================================================
+    // ตั้งค่า: ใส่ URL ที่ได้จากการ Deploy Apps Script (ลงท้ายด้วย /exec)
+    // =====================================================================
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyp2Hv3XfVY7axGSbpTIUwQEt4rZgIOpC2jxK0CwWs9GwyuDZsxyMKKRUePI9nNrxZt/exec';
+
+    // =====================================================================
     // State
     // =====================================================================
     const EXP_LABEL = 'EXP Date / Lot No.';
@@ -619,19 +624,37 @@
     function getMeta(barcode) { return prodIndex[cleanBarcode(barcode)] || null; }
     function isEmptyVal(v) { return v === '-' || v === '' || v === null || v === undefined; }
 
+    // ---------------------------------------------------------------------
+    // เรียก API ของ Apps Script (แทน google.script.run)
+    // ใช้ POST + text/plain เพื่อไม่ให้เบราว์เซอร์ส่ง preflight (Apps Script ไม่รองรับ OPTIONS)
+    // ---------------------------------------------------------------------
+    async function api(fn, args) {
+      let res;
+      try {
+        res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ fn: fn, args: args || [] }),
+          redirect: 'follow'
+        });
+      } catch (e) {
+        throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตหรือ API_URL');
+      }
+      let j;
+      try { j = await res.json(); }
+      catch (e) { throw new Error('เซิร์ฟเวอร์ตอบกลับผิดรูปแบบ (ตรวจสอบว่า Deploy เป็น Anyone และใช้ URL /exec ล่าสุด)'); }
+      if (!j.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
+      return typeof j.data === 'string' ? JSON.parse(j.data) : j.data;
+    }
+
     function gs(fn, ...args) {
-      return new Promise((resolve, reject) => {
-        google.script.run
-          .withSuccessHandler(res => { try { resolve(typeof res === 'string' ? JSON.parse(res) : res); } catch (e) { reject(e); } })
-          .withFailureHandler(err => {
-            const msg = (err && err.message) ? String(err.message) : String(err);
-            if (msg.indexOf('SESSION_EXPIRED') !== -1) {
-              forceLogout('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
-              const e = new Error(msg); e.expired = true; reject(e);
-            } else {
-              reject(new Error(msg.replace(/^(Error|Exception):\s*/, '')));
-            }
-          })[fn](authToken, ...args);
+      return api(fn, [authToken, ...args]).catch(err => {
+        const msg = String(err && err.message ? err.message : err);
+        if (msg.indexOf('SESSION_EXPIRED') !== -1) {
+          forceLogout('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+          const e = new Error(msg); e.expired = true; throw e;
+        }
+        throw new Error(msg.replace(/^(Error|Exception):\s*/, ''));
       });
     }
     function errToast(err) { if (err && err.expired) return; showToast((err && err.message) || String(err), 'error'); }
@@ -909,9 +932,7 @@
       const pass = $id('loginPassword').value.trim();
       $id('btnLogin').disabled = true;
       showGlobalLoader('กำลังตรวจสอบสิทธิ์...');
-      google.script.run.withSuccessHandler(res => {
-        hideGlobalLoader(); $id('btnLogin').disabled = false;
-        const response = typeof res === 'string' ? JSON.parse(res) : res;
+      api('loginUser', [email, pass]).then(response => {
         if (response.success) {
           authToken = response.token;
           loggedInUser = response.user;
@@ -920,11 +941,15 @@
           showLoggedInUI();
           showToast('ยินดีต้อนรับคุณ ' + loggedInUser.name, 'success');
           loadAllData(true);
-        } else showToast(response.message, 'error');
-      }).withFailureHandler(err => {
-        hideGlobalLoader(); $id('btnLogin').disabled = false;
+        } else {
+          showToast(response.message, 'error');
+        }
+      }).catch(err => {
         showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
-      }).loginUser(email, pass);
+      }).finally(() => {
+        hideGlobalLoader();
+        $id('btnLogin').disabled = false;
+      });
     }
     function resetSessionState() {
       authToken = ''; loggedInUser = { name: '', role: '' };

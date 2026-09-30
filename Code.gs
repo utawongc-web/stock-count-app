@@ -24,10 +24,28 @@ const EDIT_RULES_ = {
 };
 
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Stock Count - ระบบจัดการคลังสินค้า')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, service: 'Stock Count API' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  let out;
+  try {
+    // whitelist เฉพาะฟังก์ชันที่อนุญาตให้เรียกจากภายนอก
+    const API = {
+      loginUser: loginUser, logoutUser: logoutUser, getInventoryData: getInventoryData,
+      recordMovement: recordMovement, recordAudit: recordAudit,
+      getRowData: getRowData, updateRecord: updateRecord, deleteRecord: deleteRecord,
+      saveProduct: saveProduct, clearAllAuditData: clearAllAuditData
+    };
+    const req = JSON.parse(e.postData.contents);
+    if (!Object.prototype.hasOwnProperty.call(API, req.fn)) throw new Error('Unknown function');
+    const result = API[req.fn].apply(null, req.args || []);
+    out = { ok: true, result: result };
+  } catch (err) {
+    out = { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ===========================================================================

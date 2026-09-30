@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stock Count</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/th.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <style>
+    body { background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 0; overflow-x: hidden; padding-bottom: 120px !important; }
+    .container-fluid { padding-top: 10px; padding-bottom: 90px; }
+    .card { border-radius: 16px; border: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); }
+    .form-control, .form-select, .btn { border-radius: 10px; font-size: 16px; }
+
+    .bg-gradient-primary { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; }
+    .bg-gradient-success { background: linear-gradient(135deg, #10b981 0%, #047857 100%); color: white; }
+    .bg-gradient-warning { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); color: white; }
+    .bg-gradient-danger { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); color: white; }
+    .kpi-icon { font-size: 2.5rem; opacity: 0.3; position: absolute; right: 15px; bottom: 10px; }
+
+    .ts-control { border-radius: 10px !important; padding: 10px 12px !important; font-size: 15px !important; }
+    .table-responsive-freeze { max-height: 50vh; overflow: auto; border: 1px solid #cbd5e1; border-radius: 12px; background: #ffffff; position: relative; margin-bottom: 25px; z-index: 10; }
+    .table-fixed { border-collapse: separate !important; border-spacing: 0; width: 100%; position: relative; z-index: 11; }
+    .table-bordered th, .table-bordered td { border: 1px solid #cbd5e1 !important; }
+    .table-fixed thead th { position: sticky !important; top: 0 !important; background-color: #f8fafc; z-index: 9999 !important; background-clip: padding-box !important; white-space: nowrap; box-shadow: 0 2px 2px -1px rgba(0,0,0,0.08); vertical-align: middle; opacity: 1 !important; }
+
+    .sortable { cursor: pointer; user-select: none; position: relative; padding-right: 20px !important; transition: background-color 0.2s; }
+    .sortable:hover { background-color: #e2e8f0 !important; color: #0f172a !important; }
+    .sort-icon { font-size: 11px; position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+
+    #global-loader { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(3px); z-index: 99999; justify-content: center; align-items: center; flex-direction: column; }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    .toast-container-custom { position: fixed; top: 20px; right: 20px; z-index: 100000; display: flex; flex-direction: column; gap: 10px; max-width: 360px; width: calc(100% - 40px); }
+    .custom-toast { border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); border: none; animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    @media (max-width: 768px) {
+      .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; display: flex; justify-content: space-around; padding: 10px 4px 18px 4px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); z-index: 1050; }
+      .mobile-bottom-nav .nav-link { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: #64748b; padding: 4px 8px; border: none; background: transparent; }
+      .mobile-bottom-nav .nav-link.active { color: #2563eb; font-weight: bold; background: transparent; }
+      .mobile-bottom-nav .nav-link i { font-size: 20px; margin-bottom: 2px; }
+      .desktop-nav { display: none !important; }
+      .toast-container-custom { left: 20px; right: 20px; width: auto; }
+    }
+    @media (min-width: 769px) { .mobile-bottom-nav { display: none !important; } }
+
+    .badge-out { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .badge-low { background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
+    .badge-ok { background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .badge-row { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; font-weight: 600; font-family: monospace; }
+    .badge-unit-on { background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+
+    .activity-feed { border-left: 2px solid #e2e8f0; padding-left: 15px; margin-left: 10px; }
+    .activity-item { position: relative; margin-bottom: 15px; }
+    .activity-item::before { content: ''; position: absolute; left: -21px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #3b82f6; border: 2px solid #fff; }
+    .activity-item.act-in::before { background: #10b981; }
+    .activity-item.act-out::before { background: #ef4444; }
+    .activity-item.act-audit::before { background: #f59e0b; }
+    .nav-pills .nav-link.active i,
+    .mobile-bottom-nav .nav-link.active i { color: inherit !important; }
+
+    /* Scanner modal ต้องอยู่เหนือ loader/toast อื่นๆ ที่ไม่ใช่ตัวมันเอง */
+    #scanModal { z-index: 100001; }
+    #scanReader video { border-radius: 12px; }
+  </style>
+</head>
+<body class="p-2 p-md-4">
+
+  <div class="toast-container-custom" id="toastContainer"></div>
+
+  <div id="global-loader">
+    <div class="spinner-border text-primary" style="width: 3.2rem; height: 3.2rem;" role="status"></div>
+    <span class="mt-3 fw-bold text-dark fs-6" id="global-loader-text">กำลังโหลดข้อมูล...</span>
+    <small class="text-muted">กรุณารอสักครู่ ระบบกำลังประมวลผล</small>
+  </div>
+
+  <div id="loginScreen" class="container-fluid vh-100 justify-content-center align-items-center" style="background-color: #f1f5f9; position: fixed; top: 0; left: 0; z-index: 9999; display: none;">
+    <div class="card p-4 shadow-lg w-100 border-0" style="max-width: 400px; border-radius: 20px;">
+      <div class="text-center mb-4">
+        <i class="bi bi-boxes text-primary" style="font-size: 3rem;"></i>
+        <h4 class="fw-bold text-dark mt-2">Stock Count</h4>
+        <small class="text-muted">ระบบจัดการคลังสินค้า</small>
+      </div>
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="mb-3">
+          <label class="form-label small fw-bold text-muted">อีเมล (Email)</label>
+          <input type="email" id="loginEmail" class="form-control py-2" placeholder="อีเมลของคุณ" autocomplete="username" required>
+        </div>
+        <div class="mb-4">
+          <label class="form-label small fw-bold text-muted">รหัสผ่าน (Password)</label>
+          <input type="password" id="loginPassword" class="form-control py-2" placeholder="••••••••" autocomplete="current-password" required>
+        </div>
+        <button type="submit" id="btnLogin" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" style="border-radius: 12px;">เข้าสู่ระบบ</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="mainApp" style="display: none;">
+    <div class="container-fluid max-w-lg">
+      <div class="d-flex justify-content-between align-items-center mb-3 pt-1">
+        <div>
+          <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-boxes me-2 text-primary"></i>Stock Count</h5>
+          <small class="text-muted" style="font-size: 12px;">ใช้งานโดย: <b id="displayLoginName" class="text-primary">-</b> (<span id="displayLoginRole">-</span>)</small>
+        </div>
+        <div>
+          <button id="btnRefresh" class="btn btn-light border btn-sm shadow-sm me-1" onclick="loadAllData()">
+            <i class="bi bi-arrow-clockwise" id="refreshIcon"></i> <span class="d-none d-sm-inline">รีเฟรช</span>
+          </button>
+          <button class="btn btn-danger btn-sm shadow-sm" onclick="logout()" title="ออกจากระบบ">
+            <i class="bi bi-box-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <ul class="nav nav-pills mb-4 gap-2 bg-white p-2 rounded-3 shadow-sm desktop-nav" id="pills-tab">
+        <li class="nav-item"><button class="nav-link active" data-tab="tab-dash" onclick="navigateToTab('tab-dash')"><i class="bi bi-speedometer2 me-1"></i>ภาพรวม</button></li>
+        <li class="nav-item"><button class="nav-link" data-tab="tab-audit" onclick="navigateToTab('tab-audit')"><i class="bi bi-pencil-square text-warning me-1"></i>ฟอร์มนับสินค้า</button></li>
+        <li class="nav-item"><button class="nav-link" data-tab="tab-audit-report" onclick="navigateToTab('tab-audit-report')"><i class="bi bi-table text-primary me-1"></i>ประวัตินับ</button></li>
+        <li class="nav-item"><button class="nav-link" data-tab="tab-stock" onclick="navigateToTab('tab-stock')"><i class="bi bi-list-check me-1"></i>สต็อกคงเหลือ</button></li>
+        <li class="nav-item"><button class="nav-link" data-tab="tab-move" onclick="navigateToTab('tab-move')"><i class="bi bi-arrow-left-right me-1"></i>รับเข้า / จ่ายออก</button></li>
+        <li class="nav-item"><button class="nav-link" data-tab="tab-hist" onclick="navigateToTab('tab-hist')"><i class="bi bi-clock-history me-1"></i>ประวัติรับ-จ่าย</button></li>
+        <li class="nav-item"><button class="nav-link" data-tab="tab-prod" onclick="navigateToTab('tab-prod')"><i class="bi bi-tag me-1"></i>จัดการสินค้า</button></li>
+        <li class="nav-item"><button class="nav-link" data-tab="tab-reconcile" onclick="navigateToTab('tab-reconcile')"><i class="bi bi-clipboard2-data text-danger me-1"></i>สรุปผลต่าง</button></li>
+      </ul>
+
+      <div class="tab-content">
+        <!-- ===== ภาพรวม ===== -->
+        <div class="tab-pane fade show active" id="tab-dash">
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3"><div class="card bg-gradient-primary p-3 position-relative overflow-hidden h-100"><span class="small text-white-50 fw-bold">รายการสินค้า (SKUs)</span><h3 class="fw-bold mt-1 mb-0" id="dash-sku">-</h3><i class="bi bi-box-seam kpi-icon"></i></div></div>
+            <div class="col-6 col-md-3"><div class="card bg-gradient-success p-3 position-relative overflow-hidden h-100"><span class="small text-white-50 fw-bold">รวมทั้งหมด (ลัง)</span><h3 class="fw-bold mt-1 mb-0" id="dash-units">-</h3><i class="bi bi-layers kpi-icon"></i></div></div>
+            <div class="col-6 col-md-3"><div class="card bg-gradient-warning p-3 position-relative overflow-hidden h-100"><span class="small text-white-50 fw-bold">ใกล้หมดสต็อก (SKUs)</span><h3 class="fw-bold mt-1 mb-0" id="dash-low">-</h3><i class="bi bi-exclamation-triangle kpi-icon"></i></div></div>
+            <div class="col-6 col-md-3"><div class="card bg-gradient-danger p-3 position-relative overflow-hidden h-100"><span class="small text-white-50 fw-bold">หมดสต็อก (SKUs)</span><h3 class="fw-bold mt-1 mb-0" id="dash-out">-</h3><i class="bi bi-x-octagon kpi-icon"></i></div></div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-12 col-md-6">
+              <div class="card p-3 h-100">
+                <h6 class="fw-bold mb-3 text-secondary">สถานะคลังสินค้า (Stock Health)</h6>
+                <div style="position: relative; height: 220px; width: 100%;"><canvas id="stockStatusChart"></canvas></div>
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <div class="card p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h6 class="fw-bold mb-0 text-secondary"><i class="bi bi-activity me-2"></i>กิจกรรมล่าสุด (Movements)</h6>
+                  <button class="btn btn-sm btn-light border" onclick="navigateToTab('tab-hist')">ดูประวัติทั้งหมด</button>
+                </div>
+                <div class="activity-feed" id="recentActivityFeed" style="max-height: 220px; overflow-y: auto;"><div class="text-muted small">กำลังโหลดข้อมูล...</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-12">
+              <div class="card p-3">
+                <h6 class="fw-bold mb-3 text-secondary"><i class="bi bi-exclamation-triangle text-warning me-2"></i>สินค้าใกล้หมด / หมดสต็อก</h6>
+                <div class="table-responsive" style="max-height: 260px; overflow-y: auto;">
+                  <table class="table table-sm table-bordered align-middle mb-0 table-fixed" style="font-size: 13px;">
+                    <thead><tr><th>สินค้า</th><th class="text-end">คงเหลือ</th><th class="text-center">เกณฑ์</th></tr></thead>
+                    <tbody id="quickLowStock"><tr><td colspan="3" class="text-center text-muted py-3">กำลังโหลดข้อมูล...</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== ฟอร์มนับสินค้า ===== -->
+        <div class="tab-pane fade" id="tab-audit">
+          <div class="card p-3 mx-auto" style="max-width: 600px;">
+            <div id="auditSetupBox">
+              <div class="d-flex justify-content-between align-items-center mb-3"><h6 class="fw-bold text-dark mb-0"><i class="bi bi-person-check-fill text-warning me-2"></i>เตรียมการตรวจนับสินค้า</h6><button type="button" class="btn btn-outline-primary btn-sm" onclick="navigateToTab('tab-audit-report')"><i class="bi bi-table me-1"></i>ดูประวัตินับ</button></div>
+              <div class="p-3 bg-light rounded border mb-3">
+                <div id="auditSetupRoleNotice" style="display: none;"></div>
+                <div class="mb-3">
+                  <label class="form-label small fw-bold text-dark mb-1">เลือกแถว/ชั้นวาง (Row) <span class="text-danger">*</span></label>
+                  <select id="aRowSetup" placeholder="🔍 เลือกแถว..."></select>
+                </div>
+                <button type="button" class="btn btn-warning w-100 fw-bold py-2 text-dark shadow-sm" onclick="promptStartAuditSession()"><i class="bi bi-play-circle-fill me-1"></i> เริ่มต้นการตรวจนับ</button>
+              </div>
+            </div>
+
+            <div id="auditCountingBox" style="display: none;">
+              <div class="d-flex justify-content-between align-items-center p-2 mb-3 bg-warning bg-opacity-10 border border-warning rounded">
+                <div><span class="badge bg-warning text-dark me-1" id="sessionRowDisplay">Row</span><span class="badge bg-secondary ms-1" id="sessionRoleBadge">Role</span><span class="badge ms-1" id="sessionDynamicRoundBadge" style="display:none;"></span></div>
+                <button type="button" class="btn btn-sm btn-outline-danger py-0" onclick="endAuditSessionDirectly()"><i class="bi bi-x-circle me-1"></i>ออกจากรอบนี้</button>
+              </div>
+              <form id="auditForm" onsubmit="handleAuditSubmit(event, 'CONTINUE')">
+                <div class="mb-3">
+                  <label class="form-label small fw-bold">ยิงบาร์โค้ด / กรอกรหัสสินค้า <span class="text-danger">*</span></label>
+                  <div class="input-group">
+                    <input type="text" id="aBarcodeStr" class="form-control border-primary bg-white" placeholder="สแกนบาร์โค้ดแล้วกด Enter..." onkeydown="searchBarcodeAudit(event)">
+                    <button class="btn btn-outline-primary" type="button" onclick="openScanner('aBarcodeStr')" title="สแกนด้วยกล้อง"><i class="bi bi-camera-fill"></i></button>
+                    <button class="btn btn-warning fw-bold text-dark" type="button" onclick="triggerBarcodeAudit()"><i class="bi bi-search"></i> ค้นหา</button>
+                  </div>
+                </div>
+
+                <div class="mb-3 p-3 bg-light rounded border">
+                  <div class="d-flex justify-content-between align-items-center mb-1"><label class="form-label small fw-bold text-secondary mb-0">วันผลิต (MFD Date)</label><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 11px;" onclick="fpickrAuditMfd.clear()">ล้าง</button></div>
+                  <input type="text" id="aMFDDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป">
+
+                  <div class="d-flex justify-content-between align-items-center mt-3 mb-1"><label class="form-label small fw-bold text-danger mb-0">วันหมดอายุ (EXP) / หมายเลขล็อต (Lot No.)</label><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 11px;" onclick="fpickrAuditExp.clear()">ล้าง</button></div>
+                  <input type="text" id="aExpDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป">
+                  <div id="aExpChipsWrapper" class="mt-2" style="display: none;"><span class="small text-muted d-block mb-1">เลือกล็อตในระบบ:</span><div id="aExpChipsContainer" class="d-flex flex-wrap gap-1"></div></div>
+                </div>
+
+                <div id="aSelectedProductCard" class="p-3 bg-light rounded border mb-3" style="display: none;">
+                  <div class="d-flex align-items-center gap-3">
+                    <div id="aProductImagePreview" style="width: 60px; height: 60px; border-radius: 8px; background: #ffffff; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                      <i class="bi bi-image text-muted fs-4"></i>
+                    </div>
+                    <div class="row g-1 small flex-grow-1">
+                      <div class="col-12"><span class="text-muted">บาร์โค้ด: </span><span class="fw-bold font-monospace text-primary" id="aShowBarcode">-</span></div>
+                      <div class="col-12"><span class="text-muted">ชื่อ: </span><span class="fw-bold text-dark" id="aPackRatioInfo">-</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="p-3 bg-light rounded border mb-3">
+                  <label class="form-label small fw-bold text-success d-block mb-2">จำนวนนับได้ (รวมของดี):</label>
+                  <div class="row g-2 text-center">
+                    <div class="col-4" id="aCartonsWrap">
+                      <label class="small text-primary fw-bold mb-1">ลัง</label>
+                      <input type="number" step="any" min="0" id="aCartons" class="form-control text-center border-primary" placeholder="0" oninput="calculateAuditUnits()">
+                    </div>
+                    <div class="col-4" id="aPacksWrap">
+                      <label class="small text-muted mb-1">แพ็ค</label>
+                      <input type="number" step="any" min="0" id="aPacks" class="form-control text-center" placeholder="0" oninput="calculateAuditUnits()">
+                    </div>
+                    <div class="col-4" id="aPiecesWrap">
+                      <label class="small text-muted mb-1">ชิ้น</label>
+                      <input type="number" step="any" min="0" id="aPieces" class="form-control text-center" placeholder="0" oninput="calculateAuditUnits()">
+                    </div>
+                  </div>
+                  <div class="mt-2 text-end text-muted small">ที่กรอก: <b class="text-success" id="aGoodUnitsText">0</b></div>
+                </div>
+
+                <div class="p-2 mb-3 bg-light rounded text-center border"><span class="small text-muted">รวมยอดตรวจนับทั้งหมด: </span><span class="fw-bold fs-5 text-warning-emphasis" id="aGrandTotalUnitsText">0</span></div>
+                <div class="mb-3"><label class="form-label small fw-bold">หมายเหตุ</label><input type="text" id="aNote" class="form-control" placeholder="หมายเหตุเพิ่มเติม"></div>
+                <div class="d-flex gap-2"><button type="submit" class="btn btn-warning flex-grow-1 fw-bold text-dark py-2 shadow-sm" id="btnSaveAuditContinue"><i class="bi bi-arrow-repeat me-1"></i> บันทึก & นับต่อ</button><button type="button" class="btn btn-success fw-bold py-2 px-3 shadow-sm" id="btnSaveAuditFinish" onclick="triggerAuditFinishSubmit()"><i class="bi bi-check2-circle me-1"></i> สิ้นสุดการนับ</button></div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== ประวัตินับ ===== -->
+        <div class="tab-pane fade" id="tab-audit-report">
+          <div class="card p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+              <div><h6 class="fw-bold mb-0 text-dark"><i class="bi bi-table text-primary me-2"></i>ประวัติการนับสินค้า</h6><small class="text-muted">เปรียบเทียบยอดนับแต่ละรอบ แยกตามแถว Row</small></div>
+              <button class="btn btn-outline-success btn-sm fw-bold" onclick="downloadAuditReportCSV()"><i class="bi bi-file-earmark-arrow-down me-1"></i> ดาวน์โหลด CSV</button>
+            </div>
+            <div class="row g-2 mb-3 align-items-center bg-light p-2 rounded border mx-0"><div class="col-12 col-md-5"><label class="small fw-bold text-muted mb-1"><i class="bi bi-layers-fill text-warning me-1"></i>เลือกแถว/ชั้นวาง (Row):</label><select id="auditRowSelectFilter" placeholder="🔍 เลือก Row..."></select></div><div class="col-12 col-md-7"><label class="small fw-bold text-muted mb-1"><i class="bi bi-search me-1"></i>ค้นหาในตาราง:</label><input type="text" id="searchAuditReport" class="form-control" placeholder="🔍 ค้นหาบาร์โค้ด, ชื่อสินค้า..." oninput="filterAuditReportDebounced()"></div></div>
+
+            <div class="alert alert-info py-2 px-3 mb-2 small border-0 shadow-sm" style="border-radius: 8px; background-color: #e0f2fe; color: #0369a1;">
+              <i class="bi bi-info-circle-fill me-1"></i> <b>หมายเหตุ:</b> สามารถคลิกที่หัวตารางที่มีลูกศรขึ้นลงเพื่อเรียงลำดับข้อมูลได้ • ยอดแสดงตามหน่วยที่กรอกจริง ไม่มีการแปลงหน่วย • หากยังไม่มียอดนับครั้งที่ 1 จาก WH ผู้ตรวจอื่นสามารถนับได้เลย โดยจะนับเป็นครั้งที่ 2
+            </div>
+
+            <div class="table-responsive-freeze">
+              <table class="table table-bordered table-hover align-middle mb-0 table-fixed" style="font-size: 13px;">
+                <thead class="text-center"><tr>
+                  <th class="sortable" style="background-color:#fef9c3;" onclick="sortData('audit', 'row')">Row <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" style="background-color:#f8fafc;" onclick="sortData('audit', 'name')">รายการสินค้า <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" style="background-color:#f8fafc;" onclick="sortData('audit', 'mfdDate')">MFD <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" style="background-color:#f8fafc;" onclick="sortData('audit', 'expDate')">EXP Date / Lot No. <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" style="background-color:#e0f2fe; color:#0284c7;" onclick="sortData('audit', 'startGood')">นับครั้งที่ 1 (WH) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th style="background-color:#e0f2fe; color:#0284c7;">ผู้ตรวจ WH</th>
+                  <th class="sortable" style="background-color:#cffafe; color:#0891b2;" onclick="sortData('audit', 'count2Good')">นับครั้งที่ 2 <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th style="background-color:#cffafe; color:#0891b2;">ผู้ตรวจนับ 2</th>
+                  <th class="sortable" style="background-color:#f1f5f9; color:#475569;" onclick="sortData('audit', 'count3Good')">นับครั้งที่ 3 <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th style="background-color:#f1f5f9; color:#475569;">ผู้ตรวจนับ 3</th>
+                  <th style="min-width: 150px;">หมายเหตุ</th>
+                  <th style="min-width: 150px;">แก้ไขรอบนับ</th>
+                </tr></thead>
+                <tbody id="auditReportTableBody"><tr><td colspan="12" class="text-center py-4 text-muted">กำลังโหลดข้อมูล...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== สต็อกคงเหลือ ===== -->
+        <div class="tab-pane fade" id="tab-stock">
+          <div class="card p-3">
+            <div class="row g-2 mb-3 align-items-center bg-light p-2 rounded border mx-0">
+              <div class="col-12 col-md-4"><label class="small fw-bold text-muted mb-1"><i class="bi bi-layers-fill text-warning me-1"></i>เลือกแถว/ชั้นวาง (Row):</label><select id="stockRowSelectFilter" placeholder="🔍 เลือก Row..."></select></div>
+              <div class="col-12 col-md-4"><label class="small fw-bold text-muted mb-1"><i class="bi bi-tag-fill text-primary me-1"></i>เลือกแบรนด์ (Brand):</label><select id="filterBrand" placeholder="🔍 พิมพ์ค้นหาแบรนด์..."></select></div>
+              <div class="col-12 col-md-4"><label class="small fw-bold text-muted mb-1"><i class="bi bi-search me-1"></i>ค้นหาคำสำคัญ:</label><input type="text" id="searchStock" class="form-control" placeholder="🔍 ค้นหา Barcode, แบรนด์..." oninput="filterStockDebounced()"></div>
+            </div>
+
+            <div class="alert alert-info py-2 px-3 mb-2 small border-0 shadow-sm" style="border-radius: 8px; background-color: #e0f2fe; color: #0369a1;">
+              <i class="bi bi-info-circle-fill me-1"></i> <b>หมายเหตุ:</b> ยอดคงเหลือคำนวณจากรายการรับ-จ่าย (Movements) แยกตามหน่วยที่บันทึกจริง (ลัง / แพ็ค / ชิ้น) ไม่มีการแปลงหน่วย • จ่ายออกต้องจ่ายตามหน่วยเดียวกับที่รับเข้า • หากต้องการแก้ยอดให้ใช้ "ปรับยอดสต็อก (ADJUST)" หรือแก้ที่หน้าประวัติรับ-จ่าย
+            </div>
+
+            <div class="table-responsive-freeze">
+              <table class="table table-bordered table-hover align-middle mb-0 table-fixed" style="font-size: 13px;">
+                <thead class="text-center"><tr>
+                  <th class="sortable" style="background-color: #fef9c3 !important;" onclick="sortData('stock', 'locationRow')">Row <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="text-start sortable" style="background-color: #f8fafc !important;" onclick="sortData('stock', 'name')">สินค้า / บาร์โค้ด <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" style="background-color: #f8fafc !important;" onclick="sortData('stock', 'mfdDate')">MFD <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" style="background-color: #f8fafc !important;" onclick="sortData('stock', 'expDate')">EXP Date / Lot No. <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" style="background-color: #f8fafc !important;" onclick="sortData('stock', 'shelfLife')">Shelf life <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" style="background-color: #f8fafc !important;" onclick="sortData('stock', 'remainDays')">Shelf life (Day) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" style="background-color: #f8fafc !important;" onclick="sortData('stock', 'percentDay')">%Day <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th>ลัง</th><th>แพ็ค</th><th>ชิ้น</th>
+                  <th class="sortable" style="background-color:#dcfce7; color:#166534;" onclick="sortData('stock', 'qty')">คงเหลือ (ตามหน่วยจริง) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th>เกณฑ์</th><th>สถานะ</th>
+                </tr></thead>
+                <tbody id="stockTableBody"><tr><td colspan="13" class="text-center py-4 text-muted">กำลังโหลดข้อมูลสต็อก...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== รับเข้า / จ่ายออก ===== -->
+        <div class="tab-pane fade" id="tab-move">
+          <div class="card p-3 mx-auto" style="max-width: 560px;">
+            <div class="d-flex justify-content-between align-items-center mb-3"><h6 class="fw-bold mb-0"><i class="bi bi-pencil-square me-2"></i>บันทึกรับเข้า / จ่ายออก</h6><span class="badge bg-primary">Warehouse Only</span></div>
+            <div id="mUserNotice" style="display: none;"></div>
+
+            <form id="moveForm" onsubmit="handleMovement(event)">
+              <div class="mb-3"><label class="form-label small fw-bold">ประเภทรายการ</label><select id="mType" class="form-select" required onchange="onTypeChange()"><option value="IN">📥 รับเข้าคลัง (IN)</option><option value="OUT">📤 จ่ายออกจากคลัง (OUT)</option><option value="ADJUST">🔄 ปรับยอดสต็อก (ADJUST)</option></select></div>
+              <div class="mb-3"><label class="form-label small fw-bold text-dark">แถว / ชั้นวางสินค้า (Location Row)</label><select id="mRowSelect" placeholder="🔍 เลือกแถว..."></select></div>
+              <div class="mb-3 p-3 bg-danger bg-opacity-10 rounded border border-danger border-opacity-25" id="destinationBox" style="display: none;"><label class="form-label small fw-bold text-danger mb-1">นำของจ่ายไปที่ไหน? (Destination) <span class="text-danger">*</span></label><select id="mDestinationSelect" placeholder="🔍 ระบุปลายทาง..."></select></div>
+
+              <div class="mb-3">
+                <label class="form-label small fw-bold">ยิงบาร์โค้ด / กรอกรหัสสินค้า <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <input type="text" id="mBarcodeStr" class="form-control border-primary bg-white" placeholder="สแกนบาร์โค้ดแล้วกด Enter..." onkeydown="searchBarcodeMove(event)">
+                  <button class="btn btn-outline-primary" type="button" onclick="openScanner('mBarcodeStr')" title="สแกนด้วยกล้อง"><i class="bi bi-camera-fill"></i></button>
+                  <button class="btn btn-primary fw-bold" type="button" onclick="triggerBarcodeMove()"><i class="bi bi-search"></i> ค้นหา</button>
+                </div>
+              </div>
+
+              <div class="mb-3 p-3 bg-light rounded border">
+                <div class="d-flex justify-content-between align-items-center mb-1"><label class="form-label small fw-bold text-secondary mb-0">วันผลิต (MFD Date)</label><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 11px;" onclick="fpickrMoveMfd.clear()">ล้าง</button></div>
+                <input type="text" id="mMFDDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป">
+
+                <div class="d-flex justify-content-between align-items-center mt-3 mb-1"><label class="form-label small fw-bold text-danger mb-0">วันหมดอายุ (EXP) / หมายเลขล็อต (Lot No.)</label><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 11px;" onclick="fpickrMoveExp.clear()">ล้าง</button></div>
+                <input type="text" id="mExpDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป">
+                <div id="expChipsWrapper" class="mt-2" style="display: none;"><span class="small text-muted d-block mb-1">เลือกล็อตที่มีในสต็อก:</span><div id="expChipsContainer" class="d-flex flex-wrap gap-1"></div></div>
+              </div>
+
+              <div id="selectedProductCard" class="p-3 bg-light rounded border mb-3" style="display: none;">
+                <div class="d-flex align-items-center gap-3">
+                  <div id="productImagePreview" style="width: 60px; height: 60px; border-radius: 8px; background: #ffffff; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                    <i class="bi bi-image text-muted fs-4"></i>
+                  </div>
+                  <div class="row g-1 small flex-grow-1">
+                    <div class="col-12"><span class="text-muted">บาร์โค้ด: </span><span class="fw-bold font-monospace text-primary" id="showBarcode">-</span></div>
+                    <div class="col-12"><span class="text-muted">ชื่อสินค้า: </span><span class="fw-bold text-dark" id="packRatioInfo">-</span></div>
+                    <div class="col-12 mt-1 pt-1 border-top"><span class="text-muted">สต็อกคงเหลือทุกล็อตรวม: </span><span class="fw-bold text-success fs-6" id="stockPreviewText">-</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="p-3 bg-light rounded border mb-3">
+                <label class="form-label small fw-bold text-success d-block mb-2">ระบุจำนวน:</label>
+                <div class="row g-2 text-center">
+                  <div class="col-4" id="mCartonsWrap">
+                    <label class="small text-primary fw-bold mb-1">ลัง</label>
+                    <input type="number" step="any" min="0" id="mCartons" class="form-control text-center border-primary" placeholder="0" oninput="calculateAllUnits()">
+                  </div>
+                  <div class="col-4" id="mPacksWrap">
+                    <label class="small text-muted mb-1">แพ็ค</label>
+                    <input type="number" step="any" min="0" id="mPacks" class="form-control text-center" placeholder="0" oninput="calculateAllUnits()">
+                  </div>
+                  <div class="col-4" id="mPiecesWrap">
+                    <label class="small text-muted mb-1">ชิ้น</label>
+                    <input type="number" step="any" min="0" id="mPieces" class="form-control text-center" placeholder="0" oninput="calculateAllUnits()">
+                  </div>
+                </div>
+                <div class="mt-2 text-end text-muted small">ที่กรอก: <b class="text-success" id="goodUnitsText">0</b></div>
+              </div>
+
+              <div class="p-2 mb-3 bg-light rounded text-center border"><span class="small text-muted">รวมยอดทั้งสิ้น: </span><span class="fw-bold fs-5 text-primary" id="grandTotalUnitsText">0</span></div>
+              <div class="mb-3"><label class="form-label small fw-bold">หมายเหตุเพิ่มเติม</label><input type="text" id="mNote" class="form-control" placeholder="บันทึกช่วยจำ"></div>
+              <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" id="btnSaveMove">ยืนยันบันทึกสต็อก</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- ===== ประวัติรับ-จ่าย ===== -->
+        <div class="tab-pane fade" id="tab-hist">
+          <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div><h6 class="fw-bold mb-0">ประวัติรับ-จ่าย (Movements)</h6><small class="text-muted" id="histInfo"></small></div>
+              <input type="text" id="searchHist" class="form-control form-control-sm w-auto" placeholder="🔍 กรองประวัติ..." oninput="filterHistoryDebounced()">
+            </div>
+
+            <div class="table-responsive-freeze">
+              <table class="table table-bordered table-hover align-middle mb-0 table-fixed" style="font-size: 13px;">
+                <thead class="text-center"><tr>
+                  <th class="sortable" onclick="sortData('hist', 'sheetRowIndex')">เวลา <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" onclick="sortData('hist', 'locationRow')">Row <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" onclick="sortData('hist', 'barcode')">บาร์โค้ด <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" onclick="sortData('hist', 'name')">สินค้า / แบรนด์ <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" onclick="sortData('hist', 'mfdDate')">MFD <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" onclick="sortData('hist', 'expDate')">EXP Date / Lot No. <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" onclick="sortData('hist', 'type')">ประเภท <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th>ปลายทาง</th>
+                  <th class="sortable" onclick="sortData('hist', 'qty')">จำนวน (ตามที่บันทึก) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" onclick="sortData('hist', 'user')">ผู้บันทึก <i class="bi bi-arrow-down-up sort-icon"></i></th><th>หมายเหตุ</th><th>แก้ไข</th>
+                </tr></thead>
+                <tbody id="histTableBody"><tr><td colspan="12" class="text-center py-4 text-muted">กำลังโหลดประวัติ...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== จัดการสินค้า ===== -->
+        <div class="tab-pane fade" id="tab-prod">
+          <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold mb-0">ฐานข้อมูลสินค้า (Master Data)</h6>
+              <button class="btn btn-success btn-sm" id="btnAddProduct" onclick="openProductModal()"><i class="bi bi-plus-lg"></i> เพิ่มสินค้า</button>
+            </div>
+            <div class="row g-2 mb-3"><div class="col-12 col-md-6"><input type="text" id="searchManageProduct" class="form-control" placeholder="🔍 ค้นหา Barcode, แบรนด์, ชื่อ..." oninput="filterManageProductDebounced()"></div><div class="col-12 col-md-4"><select id="filterManageBrand" placeholder="🔍 พิมพ์ค้นหาแบรนด์..."></select></div></div>
+
+            <div class="alert alert-info py-2 px-3 mb-2 small border-0 shadow-sm" style="border-radius: 8px; background-color: #e0f2fe; color: #0369a1;">
+              <i class="bi bi-info-circle-fill me-1"></i> <b>หมายเหตุ:</b> สินค้าที่ตั้งเป็น Inactive จะไม่แสดงในหน้าสต็อกคงเหลือและรับ-จ่าย/นับไม่ได้ • คอลัมน์ "หน่วยที่กรอกได้" ควบคุมช่องกรอกในฟอร์ม • ยอดคงเหลือแสดงตามหน่วยที่บันทึกจริง ไม่แปลงหน่วย • อัตราแปลงหน่วยใช้เฉพาะคำนวณเกณฑ์แจ้งเตือนใกล้หมดเท่านั้น
+            </div>
+
+            <div class="table-responsive-freeze">
+              <table class="table table-bordered table-hover align-middle mb-0 table-fixed" style="font-size: 13px;">
+                <thead><tr>
+                  <th class="sortable" onclick="sortData('prod', 'barcode')">Barcode <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" onclick="sortData('prod', 'brand')">แบรนด์ <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th class="sortable" onclick="sortData('prod', 'name')">ชื่อสินค้า <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th>อัตราแปลงหน่วย (ใช้กับเกณฑ์เตือน)</th>
+                  <th class="text-center">หน่วยที่กรอกได้</th>
+                  <th class="sortable text-center" onclick="sortData('prod', 'minStock')">เกณฑ์ <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  <th>แก้ไข</th>
+                </tr></thead>
+                <tbody id="prodTableBody"><tr><td colspan="7" class="text-center py-4 text-muted">กำลังโหลด...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== สรุปผลต่าง ===== -->
+        <div class="tab-pane fade" id="tab-reconcile">
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3"><div class="card bg-gradient-primary p-3 position-relative overflow-hidden h-100"><span class="small text-white-50 fw-bold">ยอดสต็อกในระบบ</span><h5 class="fw-bold mt-1 mb-0" id="recon-sys">0</h5><i class="bi bi-box-seam kpi-icon"></i></div></div>
+            <div class="col-6 col-md-3"><div class="card bg-gradient-warning p-3 position-relative overflow-hidden h-100"><span class="small text-dark-50 fw-bold text-dark">ยอดที่นับได้ล่าสุด</span><h5 class="fw-bold mt-1 mb-0 text-dark" id="recon-audit">0</h5><i class="bi bi-clipboard-check kpi-icon text-dark"></i></div></div>
+            <div class="col-6 col-md-3"><div class="card bg-white border p-3 position-relative overflow-hidden h-100"><span class="small text-muted fw-bold">ผลต่าง (Diff)</span><h5 class="fw-bold mt-1 mb-0" id="recon-diff">0</h5><i class="bi bi-calculator kpi-icon text-muted"></i></div></div>
+            <div class="col-6 col-md-3"><div class="card bg-white border p-3 position-relative overflow-hidden h-100"><span class="small text-muted fw-bold">จำนวนรายการที่มีผลต่าง</span><h3 class="fw-bold mt-1 mb-0" id="recon-diff-pct">0</h3><i class="bi bi-percent kpi-icon text-muted"></i></div></div>
+          </div>
+
+          <div class="card p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+              <h6 class="fw-bold mb-0"><i class="bi bi-clipboard2-data text-danger me-2"></i>ตารางเปรียบเทียบยอดนับ vs ระบบ (รวมทุก Row)</h6>
+              <input type="text" id="searchRecon" class="form-control form-control-sm w-auto" placeholder="🔍 ค้นหาสินค้า..." oninput="filterReconcileDebounced()">
+            </div>
+            <div class="small text-muted mb-2">เปรียบเทียบแยกตามหน่วย (ลัง / แพ็ค / ชิ้น) ไม่มีการแปลงหน่วยระหว่างกัน</div>
+
+            <div class="table-responsive-freeze">
+              <table class="table table-bordered table-hover align-middle mb-0 table-fixed" style="font-size: 13px;">
+                <thead class="text-center">
+                  <tr>
+                    <th class="sortable" style="background-color: #f8fafc;" onclick="sortData('recon', 'barcode')">บาร์โค้ด <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="text-start sortable" style="background-color: #f8fafc;" onclick="sortData('recon', 'name')">ชื่อสินค้า <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" style="background-color: #f8fafc;" onclick="sortData('recon', 'mfd')">MFD <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" style="background-color: #f8fafc;" onclick="sortData('recon', 'exp')">EXP Date / Lot No. <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" style="background-color: #e0f2fe; color: #0284c7;" onclick="sortData('recon', 'systemQty')">สต็อกระบบ <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" style="background-color: #fef9c3; color: #854d0e;" onclick="sortData('recon', 'auditQty')">ยอดที่นับได้ <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" style="background-color: #f8fafc;" onclick="sortData('recon', 'diff')">Diff <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                  </tr>
+                </thead>
+                <tbody id="reconTableBody"><tr><td colspan="7" class="text-center py-4 text-muted">กำลังโหลดข้อมูล...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mobile-bottom-nav">
+        <button class="nav-link active" data-tab="tab-dash" onclick="navigateToTab('tab-dash')"><i class="bi bi-speedometer2"></i><span>ภาพรวม</span></button>
+        <button class="nav-link" data-tab="tab-audit" onclick="navigateToTab('tab-audit')"><i class="bi bi-pencil-square text-warning"></i><span>นับสินค้า</span></button>
+        <button class="nav-link" data-tab="tab-audit-report" onclick="navigateToTab('tab-audit-report')"><i class="bi bi-table text-primary"></i><span>ประวัตินับ</span></button>
+        <button class="nav-link" data-tab="tab-stock" onclick="navigateToTab('tab-stock')"><i class="bi bi-list-check"></i><span>คงเหลือ</span></button>
+        <button class="nav-link" data-tab="tab-move" onclick="navigateToTab('tab-move')"><i class="bi bi-arrow-left-right"></i><span>รับ-จ่าย</span></button>
+        <button class="nav-link" data-tab="tab-hist" onclick="navigateToTab('tab-hist')"><i class="bi bi-clock-history"></i><span>ประวัติ</span></button>
+        <button class="nav-link" data-tab="tab-prod" onclick="navigateToTab('tab-prod')"><i class="bi bi-tag"></i><span>สินค้า</span></button>
+        <button class="nav-link" data-tab="tab-reconcile" onclick="navigateToTab('tab-reconcile')"><i class="bi bi-clipboard2-data text-danger"></i><span>สรุปผลต่าง</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Modals ===== -->
+  <div class="modal fade" id="auditStartConfirmModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content shadow-lg border-0" style="border-radius: 20px;"><div class="modal-header bg-warning bg-opacity-10 border-warning border-opacity-25" style="border-top-left-radius: 20px; border-top-right-radius: 20px;"><h6 class="modal-title fw-bold text-dark"><i class="bi bi-shield-check text-warning me-2 fs-5"></i>ยืนยันเริ่มต้นการตรวจนับ</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body p-4"><div class="p-3 bg-light rounded-4 border mb-3"><div class="mb-2"><span class="text-muted small">ผู้ตรวจนับ:</span> <b id="confirmUserText" class="text-primary">-</b></div><div class="mb-2"><span class="text-muted small">แถว / ชั้นวาง:</span> <b id="confirmRowText" class="text-dark font-monospace">-</b></div><div class="mb-2 d-flex align-items-center gap-2"><span class="text-muted small">รอบการตรวจนับ:</span> <span id="confirmCycleText" class="badge bg-primary fs-6 px-2 py-1">-</span></div><div id="confirmWarehouseWarning" class="alert alert-warning py-2 px-3 small border-warning mb-0 mt-2" style="display: none;"><b>สิทธิ์ Warehouse:</b><br>ระบบจะเคลียร์ประวัติรอบเก่าของสินค้านี้ และเริ่มรอบเป็น "นับครั้งที่ 1" ใหม่</div></div><p class="small text-muted mb-0">ต้องการเริ่มนับสินค้าในพื้นที่นี้ใช่หรือไม่?</p></div><div class="modal-footer flex-column gap-2 border-top-0 pt-0 p-4"><button type="button" class="btn btn-warning w-100 fw-bold text-dark py-2 rounded-3 shadow-sm" onclick="startAuditSessionConfirmed()"><i class="bi bi-check2-circle me-1"></i> ยืนยันเข้าสู่การตรวจนับ</button><button type="button" class="btn btn-link text-muted w-100 p-0 text-decoration-none small" data-bs-dismiss="modal">ยกเลิก</button></div></div></div>
+  </div>
+
+  <div class="modal fade" id="auditClearConfirmModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow-lg border-0" style="border-radius: 20px;">
+        <div class="modal-header bg-danger bg-opacity-10 border-danger border-opacity-25" style="border-top-left-radius: 20px; border-top-right-radius: 20px;">
+          <h6 class="modal-title fw-bold text-danger"><i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>เริ่มต้นรอบการนับใหม่ทั้งระบบ (New Cycle)</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <p class="small text-dark mb-3">ระบบพบว่ามีข้อมูลการตรวจนับจากฝ่ายตรวจสอบ (Non-Warehouse) ไปเรียบร้อยแล้วในรอบก่อนหน้า</p>
+          <div class="alert alert-warning py-2 px-3 small mb-0">
+            <b>สิทธิ์ Warehouse:</b> การที่คุณเริ่มนับสินค้าอีกครั้ง จะถือว่าเป็นการ <u>เริ่มต้นวงรอบใหม่ของทั้งคลังสินค้า (New Cycle)</u><br><br>คุณต้องการดาวน์โหลดไฟล์สรุปผล .CSV ของรอบเก่า และ <b>ล้างข้อมูลการนับทั้งหมดในชีท</b> เพื่อเริ่มใหม่หรือไม่?<br><small class="text-muted">(ระบบจะสำรองข้อมูลเดิมไว้ในชีท AuditsArchive ก่อนล้างเสมอ)</small>
+          </div>
+        </div>
+        <div class="modal-footer flex-column gap-2 border-top-0 pt-0 p-4">
+          <button type="button" class="btn btn-success w-100 fw-bold py-2 rounded-3 shadow-sm" onclick="downloadAuditCSVAndClear()">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i> ดาวน์โหลด CSV & ล้างข้อมูลทั้งหมดเพื่อเริ่มใหม่
+          </button>
+          <button type="button" class="btn btn-outline-secondary w-100 fw-bold py-2 rounded-3" onclick="continueWithoutClearing()">
+            <i class="bi bi-arrow-right-circle me-1"></i> ข้ามไปนับต่อ (ไม่ล้างข้อมูล)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editRowModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h6 class="modal-title fw-bold" id="editModalTitle">แก้ไขข้อมูล</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body" id="editModalBody"></div><div class="modal-footer"><button type="button" class="btn btn-danger btn-sm me-auto" onclick="executeDeleteRecord()"><i class="bi bi-trash me-1"></i> ลบแถวนี้</button><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button><button type="button" class="btn btn-primary btn-sm" onclick="saveRecordEdit()">บันทึกการแก้ไข</button></div></div></div>
+  </div>
+
+  <div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h6 class="modal-title fw-bold" id="pModalTitle">ข้อมูลสินค้า Master Data</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+      <form id="pForm" onsubmit="handleProductSubmit(event)">
+        <div class="mb-2">
+          <label class="form-label small">Barcode</label>
+          <div class="input-group">
+            <input type="text" id="pBarcode" class="form-control" required>
+            <button class="btn btn-outline-primary" type="button" id="btnScanProduct" onclick="openScanner('pBarcode')" title="สแกนด้วยกล้อง"><i class="bi bi-camera-fill"></i></button>
+          </div>
+        </div>
+        <div class="mb-2"><label class="form-label small">แบรนด์</label><input type="text" id="pBrand" class="form-control" required></div>
+        <div class="mb-2"><label class="form-label small">ชื่อสินค้า</label><input type="text" id="pName" class="form-control" required></div>
+        <div class="mb-2"><label class="form-label small">ลิงก์รูปภาพ (Image URL)</label><input type="url" id="pImageURL" class="form-control" placeholder="https://..."></div>
+        <div class="p-3 bg-light rounded border mb-2">
+          <span class="small fw-bold text-primary d-block mb-2">อัตราแปลงหน่วย (ใช้เฉพาะเกณฑ์แจ้งเตือนใกล้หมด)</span>
+          <div class="row g-2 mb-2"><div class="col-6"><label class="form-label small">1 ลัง มีกี่แพ็ค? (0 ถ้าไม่มี)</label><input type="number" step="any" id="pPacksPerCarton" class="form-control" min="0" required oninput="updateUnitMultiplierPreview()"></div><div class="col-6"><label class="form-label small">1 แพ็ค มีกี่ชิ้น? (0 ถ้าไม่มี)</label><input type="number" step="any" id="pUnitsPerPack" class="form-control" min="0" required oninput="updateUnitMultiplierPreview()"></div></div>
+          <small id="unitFormulaPreview" class="text-muted font-monospace d-block"></small>
+        </div>
+        <div class="p-3 bg-light rounded border mb-2">
+          <span class="small fw-bold text-success d-block mb-2"><i class="bi bi-ui-checks-grid me-1"></i>หน่วยที่อนุญาตให้กรอกในฟอร์ม</span>
+          <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="pAllowCarton" checked><label class="form-check-label small" for="pAllowCarton">ลัง</label></div>
+          <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="pAllowPack" checked><label class="form-check-label small" for="pAllowPack">แพ็ค</label></div>
+          <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="pAllowPiece" checked><label class="form-check-label small" for="pAllowPiece">ชิ้น</label></div>
+          <small class="text-muted d-block mt-1">เลือกเฉพาะหน่วยที่อยากให้พนักงานกรอกได้ ช่องอื่นจะถูกซ่อนอัตโนมัติ ต้องเลือกอย่างน้อย 1 หน่วย • ยอดคงเหลือจะแสดงตามหน่วยที่บันทึกจริง ไม่แปลงหน่วย (แม้ภายหลังจะจำกัดหน่วย รายการเก่าก็ยังแสดงตามหน่วยเดิม)</small>
+        </div>
+        <div class="mb-2"><label class="form-label small">เกณฑ์แจ้งเตือนขั้นต่ำ (หน่วยเดียวเลือกหน่วยนั้น / หลายหน่วยเป็น "ลัง")</label><input type="number" step="any" id="pMinStock" class="form-control" min="0" required></div>
+        <div class="mb-3"><label class="form-label small">สถานะ</label><select id="pStatus" class="form-select"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+        <button type="submit" class="btn btn-primary w-100 py-2">บันทึกสินค้า</button>
+      </form>
+    </div></div></div>
+  </div>
+
+  <!-- ===== Camera Scanner Modal ===== -->
+  <div class="modal fade" id="scanModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="border-radius: 20px;">
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold"><i class="bi bi-camera me-2"></i>สแกนบาร์โค้ดด้วยกล้อง</h6>
+          <button type="button" class="btn-close" onclick="closeScanner()"></button>
+        </div>
+        <div class="modal-body">
+          <div id="scanReader" style="width: 100%; min-height: 200px;"></div>
+          <div id="scanMsg" class="small text-muted text-center mt-2">เล็งกล้องไปที่บาร์โค้ด</div>
+          <div class="text-center mt-3 pt-3 border-top">
+            <div class="small text-muted mb-2">กล้องสดใช้ไม่ได้? ใช้แอปกล้องของเครื่องถ่ายรูปบาร์โค้ดแทน</div>
+            <input type="file" id="scanFile" accept="image/*" capture="environment" class="d-none" onchange="scanFromPhoto(this)">
+            <button type="button" class="btn btn-primary" onclick="$id('scanFile').click()"><i class="bi bi-camera-fill me-1"></i> ถ่ายรูปบาร์โค้ด</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <script>
+    // =====================================================================
+    // State
+    // =====================================================================
+    const EXP_LABEL = 'EXP Date / Lot No.';
+    function emptyData() { return { products: [], uniqueProducts: [], history: [], auditReportData: [], masterRows: [], summary: {}, historyTruncated: false }; }
+    let globalData = emptyData();
+    let prodIndex = {};
+    let authToken = '';
+    let loggedInUser = { name: '', role: '' };
+    let pModal, auditConfirmModal, editRowModalInstance;
+    let fpickrAuditMfd, fpickrAuditExp, fpickrMoveMfd, fpickrMoveExp;
+    let stockStatusChartInstance = null;
+    let currentAuditSession = { active: false, user: '', role: '', row: '' };
+    let selectedAuditRow = 'ALL', selectedStockRow = 'ALL';
+    let sortState = { stock: { col: '', asc: true }, audit: { col: '', asc: true }, hist: { col: '', asc: true }, prod: { col: '', asc: true }, recon: { col: '', asc: true } };
+    let histLimit = 300;
+    let tsDest, tsMoveRow, tsFilterBrand, tsFilterManageBrand, tsAuditRowFilter, tsStockRowFilter, tsAuditRowSetup;
+    let currentEditingSheet = '', currentEditingRowIndex = -1, currentEditingExpectedId = '';
+    let editingProduct = null;
+
+    // =====================================================================
+    // Helpers
+    // =====================================================================
+    function $id(id) { return document.getElementById(id); }
+    function $set(id, html) { const el = $id(id); if (el) el.innerHTML = html; else console.warn('[UI] Missing element #' + id); }
+    function $text(id, text) { const el = $id(id); if (el) el.innerText = text; else console.warn('[UI] Missing element #' + id); }
+    function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    function safeUrl(u) { return /^https?:\/\//i.test(String(u || '')) ? String(u) : ''; }
+    function debounce(fn, delay = 250) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); }; }
+    function isWH() { return loggedInUser.role === 'Warehouse'; }
+    function cleanBarcode(b) { return String(b || '').replace(/^'/, '').trim(); }
+    function getMeta(barcode) { return prodIndex[cleanBarcode(barcode)] || null; }
+    function isEmptyVal(v) { return v === '-' || v === '' || v === null || v === undefined; }
+
+    function gs(fn, ...args) {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(res => { try { resolve(typeof res === 'string' ? JSON.parse(res) : res); } catch (e) { reject(e); } })
+          .withFailureHandler(err => {
+            const msg = (err && err.message) ? String(err.message) : String(err);
+            if (msg.indexOf('SESSION_EXPIRED') !== -1) {
+              forceLogout('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+              const e = new Error(msg); e.expired = true; reject(e);
+            } else {
+              reject(new Error(msg.replace(/^(Error|Exception):\s*/, '')));
+            }
+          })[fn](authToken, ...args);
+      });
+    }
+    function errToast(err) { if (err && err.expired) return; showToast((err && err.message) || String(err), 'error'); }
+
+    function showToast(message, type = 'success') {
+      const container = $id('toastContainer');
+      const toastEl = document.createElement('div');
+      const bgClass = type === 'success' ? 'bg-success text-white' : 'bg-danger text-white';
+      const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-octagon-fill';
+      toastEl.className = 'toast show custom-toast ' + bgClass;
+      toastEl.innerHTML = '<div class="d-flex align-items-center p-3"><i class="bi ' + icon + ' fs-4 me-3"></i><div class="flex-grow-1"><div class="fw-bold mb-0" style="font-size: 14px;">' + (type === 'success' ? 'สำเร็จ' : 'ข้อผิดพลาด') + '</div><div class="small opacity-90 toast-msg"></div></div><button type="button" class="btn-close btn-close-white ms-2"></button></div>';
+      toastEl.querySelector('.toast-msg').textContent = message;
+      toastEl.querySelector('.btn-close').onclick = () => toastEl.remove();
+      container.appendChild(toastEl);
+      setTimeout(() => { toastEl.style.opacity = '0'; setTimeout(() => toastEl.remove(), 500); }, 4500);
+    }
+    function showGlobalLoader(msg = 'กำลังโหลดข้อมูล...') { $id('global-loader-text').innerText = msg; $id('global-loader').style.display = 'flex'; }
+    function hideGlobalLoader() { $id('global-loader').style.display = 'none'; }
+    function setRefreshLoading(isLoading) { const btn = $id('btnRefresh'), icon = $id('refreshIcon'); btn.disabled = isLoading; icon.classList.toggle('spin', isLoading); }
+
+    // ---- วันที่ ----
+    function normalizeDate(s) {
+      s = String(s || '').trim();
+      if (!s || s === '-') return '-';
+      const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+      if (!m) throw new Error('รูปแบบวันที่ไม่ถูกต้อง: ' + s + ' (ใช้ วว/ดด/ปปปป)');
+      const d = +m[1], mo = +m[2]; let y = +m[3];
+      if (y < 100) y += 2000;
+      if (y > 2400) y -= 543;
+      const dt = new Date(y, mo - 1, d);
+      if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) throw new Error('วันที่ไม่ถูกต้อง: ' + s);
+      return String(d).padStart(2, '0') + '/' + String(mo).padStart(2, '0') + '/' + y;
+    }
+    function readDate(id) { return normalizeDate($id(id).value); }
+    function readDateSoft(id) { try { return normalizeDate($id(id).value); } catch (e) { return String($id(id).value || '').trim() || '-'; } }
+
+    function normalizeRowName(str) {
+      if (!str || str === '-') return '-';
+      const m = String(str).trim().match(/^row\s*(\d+)$/i);
+      if (m) return 'Row ' + String(m[1]).padStart(2, '0');
+      return String(str).trim();
+    }
+
+    // ---- หน่วย ----
+    const UNIT_LABEL = { CARTON: 'ลัง', PACK: 'แพ็ค', PIECE: 'ชิ้น' };
+    function unitLabel(u) { return UNIT_LABEL[u] || 'ชิ้น'; }
+
+    function applyAllowedUnitsUI(prefix, prodMeta) {
+      const allowed = (prodMeta && prodMeta.allowedUnits && prodMeta.allowedUnits.length) ? prodMeta.allowedUnits : ['CARTON', 'PACK', 'PIECE'];
+      const fieldMap = { CARTON: 'Cartons', PACK: 'Packs', PIECE: 'Pieces' };
+      Object.keys(fieldMap).forEach(key => {
+        const fieldId = prefix + fieldMap[key];
+        const wrapEl = $id(fieldId + 'Wrap'), inputEl = $id(fieldId);
+        const ok = allowed.indexOf(key) !== -1;
+        if (wrapEl) wrapEl.style.display = ok ? '' : 'none';
+        if (inputEl) { inputEl.disabled = !ok; if (!ok) inputEl.value = ''; }
+      });
+    }
+    function resetAllowedUnitsUI(prefix) { applyAllowedUnitsUI(prefix, { allowedUnits: ['CARTON', 'PACK', 'PIECE'] }); }
+    function allowedUnitsBadges(allowed) {
+      const list = (allowed && allowed.length) ? allowed : ['CARTON', 'PACK', 'PIECE'];
+      const labelMap = { CARTON: 'ลัง', PACK: 'แพ็ค', PIECE: 'ชิ้น' };
+      return ['CARTON', 'PACK', 'PIECE'].map(k => list.indexOf(k) !== -1 ? '<span class="badge badge-unit-on me-1">' + labelMap[k] + '</span>' : '').join('') || '<span class="text-muted small">-</span>';
+    }
+
+    // ---- ปริมาณแยกหน่วย {c: ลัง, p: แพ็ค, u: ชิ้น} (ไม่แปลงหน่วย) ----
+    function r2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+    function zeroQ() { return { c: 0, p: 0, u: 0 }; }
+    function qOf(q) { return (q && typeof q === 'object') ? { c: Number(q.c) || 0, p: Number(q.p) || 0, u: Number(q.u) || 0 } : zeroQ(); }
+    function addQty(t, q, sign) { const s = sign || 1, x = qOf(q); t.c = r2(t.c + s * x.c); t.p = r2(t.p + s * x.p); t.u = r2(t.u + s * x.u); return t; }
+    function isZeroQty(q) { const x = qOf(q); return r2(x.c) === 0 && r2(x.p) === 0 && r2(x.u) === 0; }
+    // แสดงยอดตามหน่วยจริง เช่น "2 ลัง 3 แพ็ค 5 ชิ้น"
+    function formatQty(q) {
+      if (isEmptyVal(q)) return '-';
+      const x = qOf(q), parts = [];
+      if (r2(x.c) !== 0) parts.push(r2(x.c).toLocaleString() + ' ลัง');
+      if (r2(x.p) !== 0) parts.push(r2(x.p).toLocaleString() + ' แพ็ค');
+      if (r2(x.u) !== 0) parts.push(r2(x.u).toLocaleString() + ' ชิ้น');
+      return parts.length ? parts.join(' ') : '0';
+    }
+    function formatDiff(q) {
+      const x = qOf(q), parts = [];
+      const add = (v, label) => { v = r2(v); if (v !== 0) parts.push((v > 0 ? '+' : '-') + Math.abs(v).toLocaleString() + ' ' + label); };
+      add(x.c, 'ลัง'); add(x.p, 'แพ็ค'); add(x.u, 'ชิ้น');
+      return parts.length ? parts.join(' ') : '0';
+    }
+    function diffClass(q) {
+      const x = qOf(q), vals = [r2(x.c), r2(x.p), r2(x.u)];
+      const pos = vals.some(v => v > 0), neg = vals.some(v => v < 0);
+      if (pos && neg) return 'text-warning';
+      if (pos) return 'text-success';
+      if (neg) return 'text-danger';
+      return 'text-muted';
+    }
+
+    function readQtyFields(prefix) {
+      const vals = ['Cartons', 'Packs', 'Pieces'].map(k => {
+        const el = $id(prefix + k);
+        const v = el.disabled ? '' : el.value;
+        return v === '' ? 0 : Number(v);
+      });
+      if (vals.some(v => !isFinite(v) || v < 0)) throw new Error('จำนวนต้องเป็นตัวเลขที่ไม่ติดลบ');
+      return vals;
+    }
+    function calcUnits(prefix) {
+      const ids = prefix === 'm' ? ['goodUnitsText', 'grandTotalUnitsText'] : ['aGoodUnitsText', 'aGrandTotalUnitsText'];
+      let vals; try { vals = readQtyFields(prefix); } catch (e) { vals = [0, 0, 0]; }
+      const txt = formatQty({ c: vals[0], p: vals[1], u: vals[2] });
+      ids.forEach(id => $text(id, txt));
+    }
+    function calculateAllUnits() { calcUnits('m'); }
+    function calculateAuditUnits() { calcUnits('a'); }
+
+    // ---- เรียงลำดับ ----
+    const DATE_COLS = ['mfdDate', 'expDate', 'mfd', 'exp'];
+    function sortVal(col, v) {
+      if (isEmptyVal(v)) return null;
+      if (typeof v === 'object') { const x = qOf(v); return x.c + x.p + x.u; }   // ปริมาณแยกหน่วย: เรียงตามผลรวมตัวเลข
+      if (DATE_COLS.indexOf(col) !== -1) {
+        const m = String(v).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? Number(m[3] + m[2] + m[1]) : null;
+      }
+      const n = Number(v);
+      if (!isNaN(n)) return n;
+      return String(v).toLowerCase();
+    }
+    function applySort(list, type) {
+      const col = sortState[type].col, asc = sortState[type].asc;
+      if (!col) return list;
+      return [...list].sort((a, b) => {
+        const x = sortVal(col, a[col]), y = sortVal(col, b[col]);
+        if (x === null && y === null) return 0;
+        if (x === null) return 1;
+        if (y === null) return -1;
+        let r;
+        if (typeof x === 'number' && typeof y === 'number') r = x - y;
+        else r = String(x).localeCompare(String(y), 'th');
+        return asc ? r : -r;
+      });
+    }
+    function sortData(type, col) {
+      if (sortState[type].col === col) sortState[type].asc = !sortState[type].asc; else { sortState[type].col = col; sortState[type].asc = true; }
+      if (type === 'stock') filterStock();
+      if (type === 'audit') filterAuditReport();
+      if (type === 'hist') filterHistory();
+      if (type === 'prod') filterManageProduct();
+      if (type === 'recon') filterReconcile();
+    }
+
+    // ---- CSV ----
+    function csvCell(v) { v = String(v === null || v === undefined ? '' : v); if (/^[=+\-@]/.test(v) && isNaN(Number(v))) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; }
+    function downloadCSV(name, rows) {
+      const blob = new Blob(['\uFEFF' + rows.map(r => r.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+    function auditCsvRows(list) {
+      const rows = [['Row', 'Barcode', 'Brand', 'Name', 'MFD', EXP_LABEL, 'WH Count', 'WH User', 'Count 2', 'User 2', 'Count 3', 'User 3', 'Note']];
+      list.forEach(r => rows.push([r.row, r.barcode, r.brand, r.name, r.mfdDate, r.expDate, formatQty(r.startGood), r.startUser, formatQty(r.count2Good), r.count2User, formatQty(r.count3Good), r.count3User, r.noteSummary]));
+      return rows;
+    }
+
+    // =====================================================================
+    // Camera barcode scanner
+    // =====================================================================
+    let scanModal = null, scanner = null, scanTarget = '', scanBusy = false;
+
+    function openScanner(targetInputId) {
+      if (typeof Html5Qrcode === 'undefined') { showToast('โหลดตัวสแกนไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช', 'error'); return; }
+      if (!scanModal) scanModal = new bootstrap.Modal($id('scanModal'));
+      scanTarget = targetInputId;
+      scanBusy = false;
+      $id('scanMsg').className = 'small text-muted text-center mt-2';
+      $id('scanMsg').innerText = 'กำลังเปิดกล้อง...';
+      $id('scanModal').addEventListener('shown.bs.modal', startScanner, { once: true });
+      scanModal.show();
+    }
+
+    function startScanner() {
+      const F = Html5QrcodeSupportedFormats;
+      scanner = new Html5Qrcode('scanReader', {
+        formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE],
+        useBarCodeDetectorIfSupported: true,
+        verbose: false
+      });
+      scanner.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: (w, h) => ({ width: Math.floor(Math.min(w, 420) * 0.9), height: Math.floor(Math.min(h, 420) * 0.45) })
+        },
+        onScanSuccess,
+        () => {}
+      ).then(() => {
+        $id('scanMsg').innerText = 'เล็งกล้องไปที่บาร์โค้ด';
+      }).catch(err => {
+        const m = String(err && err.message ? err.message : err);
+        $id('scanMsg').className = 'small text-danger text-center mt-2';
+        $id('scanMsg').innerText = /Permission|NotAllowed/i.test(m)
+          ? 'ไม่ได้รับอนุญาตใช้กล้อง กรุณาอนุญาตกล้องในเบราว์เซอร์ หรือเปิดลิงก์ด้วย Chrome / Safari โดยตรง'
+          : 'เปิดกล้องไม่สำเร็จ: ' + m;
+      });
+    }
+
+    function onScanSuccess(text) {
+      if (scanBusy) return;
+      scanBusy = true;
+      if (navigator.vibrate) navigator.vibrate(80);
+      const target = scanTarget;
+      closeScanner().then(() => {
+        const el = $id(target);
+        if (!el) return;
+        el.value = String(text).trim();
+        if (target === 'aBarcodeStr') triggerBarcodeAudit();
+        else if (target === 'mBarcodeStr') triggerBarcodeMove();
+        // target === 'pBarcode' (หน้าเพิ่ม/แก้ไขสินค้า): ใส่ค่าลงช่องเฉยๆ ไม่ต้องค้นหา
+      });
+    }
+
+    // ทางสำรอง: เปิดแอปกล้องของเครื่อง ถ่ายรูป แล้วอ่านบาร์โค้ดจากรูป (ไม่ต้องขอสิทธิ์กล้องในเบราว์เซอร์)
+    async function scanFromPhoto(input) {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      const msg = $id('scanMsg');
+      msg.className = 'small text-muted text-center mt-2';
+      msg.innerText = 'กำลังอ่านบาร์โค้ดจากรูป...';
+      try {
+        if (scanner && scanner.isScanning) { await scanner.stop(); }
+      } catch (e) { console.warn(e); }
+      let reader = null;
+      try {
+        const F = Html5QrcodeSupportedFormats;
+        reader = new Html5Qrcode('scanReader', {
+          formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE],
+          useBarCodeDetectorIfSupported: true,
+          verbose: false
+        });
+        const text = await reader.scanFile(file, false);
+        try { reader.clear(); } catch (e) {}
+        onScanSuccess(text);
+      } catch (err) {
+        try { if (reader) reader.clear(); } catch (e) {}
+        msg.className = 'small text-danger text-center mt-2';
+        msg.innerText = 'อ่านบาร์โค้ดจากรูปไม่ได้ ลองถ่ายใหม่ให้เห็นบาร์โค้ดชัด ตรง และมีแสงพอ';
+      }
+    }
+
+    async function closeScanner() {
+      try {
+        if (scanner) {
+          if (scanner.isScanning) await scanner.stop();
+          scanner.clear();
+        }
+      } catch (e) { console.warn(e); }
+      scanner = null;
+      if (scanModal) scanModal.hide();
+    }
+
+    // =====================================================================
+    // Login / Logout
+    // =====================================================================
+    function showLoggedInUI() {
+      $id('displayLoginName').innerText = loggedInUser.name;
+      $id('displayLoginRole').innerText = loggedInUser.role;
+      $id('loginScreen').classList.remove('d-flex');
+      $id('loginScreen').style.display = 'none';
+      $id('mainApp').style.display = 'block';
+    }
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = $id('loginEmail').value.trim();
+      const pass = $id('loginPassword').value.trim();
+      $id('btnLogin').disabled = true;
+      showGlobalLoader('กำลังตรวจสอบสิทธิ์...');
+      google.script.run.withSuccessHandler(res => {
+        hideGlobalLoader(); $id('btnLogin').disabled = false;
+        const response = typeof res === 'string' ? JSON.parse(res) : res;
+        if (response.success) {
+          authToken = response.token;
+          loggedInUser = response.user;
+          sessionStorage.setItem('stockLiteUser', JSON.stringify({ token: authToken, name: loggedInUser.name, role: loggedInUser.role }));
+          $id('loginForm').reset();
+          showLoggedInUI();
+          showToast('ยินดีต้อนรับคุณ ' + loggedInUser.name, 'success');
+          loadAllData(true);
+        } else showToast(response.message, 'error');
+      }).withFailureHandler(err => {
+        hideGlobalLoader(); $id('btnLogin').disabled = false;
+        showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+      }).loginUser(email, pass);
+    }
+    function resetSessionState() {
+      authToken = ''; loggedInUser = { name: '', role: '' };
+      sessionStorage.removeItem('stockLiteUser');
+      currentAuditSession = { active: false, user: '', role: '', row: '' };
+      globalData = emptyData(); prodIndex = {};
+      selectedAuditRow = 'ALL'; selectedStockRow = 'ALL'; histLimit = 300;
+      $id('auditCountingBox').style.display = 'none';
+      $id('auditSetupBox').style.display = 'block';
+      $id('mainApp').style.display = 'none';
+      $id('loginScreen').classList.add('d-flex');
+      $id('loginScreen').style.display = '';
+      $id('loginForm').reset();
+      showTab('tab-dash');
+    }
+    function logout() {
+      if (authToken) gs('logoutUser').catch(() => {});
+      resetSessionState();
+    }
+    function forceLogout(msg) { hideGlobalLoader(); setRefreshLoading(false); resetSessionState(); showToast(msg, 'error'); }
+
+    // =====================================================================
+    // Navigation
+    // =====================================================================
+    function showTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show', 'active'));
+      const target = $id(tabId); if (target) target.classList.add('show', 'active');
+      document.querySelectorAll('#pills-tab .nav-link, .mobile-bottom-nav .nav-link').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('[data-tab="' + tabId + '"]').forEach(b => b.classList.add('active'));
+    }
+    function navigateToTab(tabId) {
+      const currentTab = document.querySelector('.tab-pane.show.active');
+      if (currentTab && currentTab.id === 'tab-audit' && tabId !== 'tab-audit' && currentAuditSession.active) endAuditSessionDirectly();
+      showTab(tabId);
+      if (tabId === 'tab-move') {
+        if (!isWH()) {
+          $id('btnSaveMove').disabled = true;
+          $id('mUserNotice').style.display = 'block';
+          $id('mUserNotice').className = 'alert alert-danger py-1 px-2 small mb-3';
+          $id('mUserNotice').innerHTML = '<i class="bi bi-x-circle-fill me-1"></i><b>ปฏิเสธสิทธิ์:</b> การรับ-จ่ายเฉพาะคลังสินค้า (Warehouse) เท่านั้น';
+        } else {
+          $id('btnSaveMove').disabled = false;
+          $id('mUserNotice').style.display = 'none';
+        }
+        resetMoveForm();
+      } else if (tabId === 'tab-audit') {
+        if (!currentAuditSession.active) { if (tsAuditRowSetup) tsAuditRowSetup.clear(true); updateAuditSetupNotice(); }
+      }
+      window.scrollTo(0, 0);
+    }
+
+    function applyRoleUI() {
+      const btn = $id('btnAddProduct'); if (btn) btn.style.display = isWH() ? '' : 'none';
+    }
+
+    // =====================================================================
+    // Init
+    // =====================================================================
+    window.onload = function () {
+      pModal = new bootstrap.Modal($id('productModal'));
+      auditConfirmModal = new bootstrap.Modal($id('auditStartConfirmModal'));
+      editRowModalInstance = new bootstrap.Modal($id('editRowModal'));
+
+      fpickrAuditMfd = flatpickr('#aMFDDate', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true, onChange: updateAuditRoundBadge });
+      fpickrAuditExp = flatpickr('#aExpDate', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true, onChange: updateAuditRoundBadge });
+      fpickrMoveMfd = flatpickr('#mMFDDate', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true });
+      fpickrMoveExp = flatpickr('#mExpDate', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true });
+
+      initAllSearchableDropdowns();
+
+      let saved = null;
+      try { saved = JSON.parse(sessionStorage.getItem('stockLiteUser') || 'null'); } catch (e) { saved = null; }
+      if (saved && saved.token) {
+        authToken = saved.token; loggedInUser = { name: saved.name, role: saved.role };
+        showLoggedInUI();
+        loadAllData(true);
+      } else {
+        $id('loginScreen').classList.add('d-flex');
+        $id('loginScreen').style.display = '';
+      }
+    };
+
+    document.addEventListener('click', function (e) {
+      const el = e.target.closest('[data-act]');
+      if (!el) return;
+      const act = el.dataset.act;
+      if (act === 'edit-product') {
+        const p = globalData.uniqueProducts.find(x => x.barcode === el.dataset.barcode);
+        if (p) editProduct(p);
+      } else if (act === 'edit-rec') {
+        loadRecordDetailForEdit(el.dataset.sheet, Number(el.dataset.row));
+      } else if (act === 'lot-move') {
+        fpickrMoveExp.setDate(el.dataset.exp === '-' ? null : el.dataset.exp, true, 'd/m/Y');
+        if (el.dataset.mfd && el.dataset.mfd !== '-') fpickrMoveMfd.setDate(el.dataset.mfd, true, 'd/m/Y'); else fpickrMoveMfd.clear();
+      } else if (act === 'lot-audit') {
+        fpickrAuditExp.setDate(el.dataset.exp === '-' ? null : el.dataset.exp, true, 'd/m/Y');
+        if (el.dataset.mfd && el.dataset.mfd !== '-') fpickrAuditMfd.setDate(el.dataset.mfd, true, 'd/m/Y'); else fpickrAuditMfd.clear();
+        updateAuditRoundBadge();
+      } else if (act === 'hist-more') {
+        histLimit += 300; filterHistory();
+      }
+    });
+
+    function loadAllData(isFirstLoad) {
+      setRefreshLoading(true);
+      showGlobalLoader(isFirstLoad === true ? 'กำลังซิงค์และเตรียมข้อมูลคลังสินค้า...' : 'กำลังอัปเดตข้อมูลล่าสุด...');
+      return gs('getInventoryData').then(data => {
+        renderData(data);
+      }).catch(err => {
+        console.error(err);
+        if (!err.expired) showToast('ไม่สามารถโหลดข้อมูลได้: ' + err.message, 'error');
+      }).finally(() => { hideGlobalLoader(); setRefreshLoading(false); });
+    }
+
+    function renderData(data) {
+      globalData = data;
+      prodIndex = {};
+      (data.uniqueProducts || []).forEach(p => { prodIndex[p.barcode] = p; });
+      applyRoleUI();
+      renderDashboardOverview(data);
+
+      const allBrands = [...new Set(data.products.map(p => p.brand).filter(b => b && b !== '-'))].sort();
+      const curBrand = tsFilterBrand.getValue(), curManageBrand = tsFilterManageBrand.getValue();
+      [tsFilterBrand, tsFilterManageBrand].forEach(ts => { ts.clear(true); ts.clearOptions(); ts.addOption({ value: '', text: 'ทุกแบรนด์' }); });
+      allBrands.forEach(b => { tsFilterBrand.addOption({ value: b, text: b }); tsFilterManageBrand.addOption({ value: b, text: b }); });
+      if (curBrand && allBrands.indexOf(curBrand) !== -1) tsFilterBrand.setValue(curBrand, true);
+      if (curManageBrand && allBrands.indexOf(curManageBrand) !== -1) tsFilterManageBrand.setValue(curManageBrand, true);
+
+      populateMasterRowsDropdown(data.masterRows);
+      filterStock(); filterHistory(); filterAuditReport(); filterManageProduct(); filterReconcile();
+    }
+
+    function renderDashboardOverview(data) {
+      const s = data.summary || {};
+      $text('dash-sku', (s.totalSku || 0).toLocaleString());
+      $text('dash-units', (s.totalCartons || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }));
+      $text('dash-low', (s.lowStockCount || 0).toLocaleString());
+      $text('dash-out', (s.outOfStockCount || 0).toLocaleString());
+
+      const urgent = (data.uniqueProducts || []).filter(p => p.status === 'Active' && (p.isLow || p.isOut));
+      $set('quickLowStock', urgent.length ? urgent.map(p =>
+        '<tr><td><span class="badge bg-secondary-subtle text-secondary me-1">' + esc(p.brand) + '</span><b>' + esc(p.name) + '</b><br><small class="text-muted font-monospace">' + esc(p.barcode) + '</small></td>' +
+        '<td class="text-end fw-bold ' + (p.isOut ? 'text-danger' : 'text-warning') + '">' + esc(formatQty(p.totalQty)) + '</td>' +
+        '<td class="text-center text-muted">' + p.minStock.toLocaleString() + ' ' + (p.singleUnit ? unitLabel(p.singleUnit) : 'ลัง') + '</td></tr>').join('')
+        : '<tr><td colspan="3" class="text-center text-success py-3"><i class="bi bi-check-circle me-1"></i>สต็อกอยู่ในเกณฑ์ปกติ</td></tr>');
+
+      const recentHtml = data.history.slice(0, 10).map(h => {
+        const typeClass = h.type === 'IN' ? 'act-in' : (h.type === 'OUT' ? 'act-out' : 'act-audit');
+        const q = esc(formatQty(h.qty));
+        const desc = h.type === 'IN' ? '<b class="text-success">+' + q + '</b>' : (h.type === 'OUT' ? '<b class="text-danger">-' + q + '</b>' : 'อัปเดตเป็น <b>' + q + '</b>');
+        return '<div class="activity-item ' + typeClass + '"><div class="small fw-bold">' + esc(h.name) + '</div><div class="text-muted" style="font-size:11px;">' + esc(h.type) + ' • ' + desc + ' โดย ' + esc(h.user) + ' (' + esc(h.time) + ')</div></div>';
+      }).join('');
+      $set('recentActivityFeed', recentHtml || '<div class="text-muted small">ยังไม่มีกิจกรรมล่าสุด</div>');
+
+      if (typeof Chart !== 'undefined') {
+        const ctx = $id('stockStatusChart').getContext('2d');
+        if (stockStatusChartInstance) stockStatusChartInstance.destroy();
+        const ok = Math.max(0, (s.totalSku || 0) - (s.lowStockCount || 0) - (s.outOfStockCount || 0));
+        stockStatusChartInstance = new Chart(ctx, { type: 'doughnut', data: { labels: ['ปกติ', 'ใกล้หมด', 'หมดสต็อก'], datasets: [{ data: [ok, s.lowStockCount || 0, s.outOfStockCount || 0], backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }, cutout: '65%' } });
+      }
+    }
+
+    // =====================================================================
+    // Dropdowns (TomSelect)
+    // =====================================================================
+    function initAllSearchableDropdowns() {
+      tsAuditRowSetup = new TomSelect('#aRowSetup', { create: false, maxOptions: 500, placeholder: '🔍 เลือกแถว...', onChange: function () { updateAuditSetupNotice(); } });
+      tsMoveRow = new TomSelect('#mRowSelect', { create: false, maxOptions: 500, placeholder: '🔍 เลือกแถว...' });
+      tsDest = new TomSelect('#mDestinationSelect', { create: true, placeholder: '🔍 ระบุปลายทาง...', options: [{ value: 'หน้าร้าน', text: 'หน้าร้าน' }, { value: 'ส่งออเดอร์', text: 'ส่งออเดอร์' }, { value: 'คืนซัพพลายเออร์', text: 'คืนซัพพลายเออร์' }] });
+      tsFilterBrand = new TomSelect('#filterBrand', { create: false, placeholder: 'ทุกแบรนด์', onChange: function () { filterStock(); } });
+      tsFilterManageBrand = new TomSelect('#filterManageBrand', { create: false, placeholder: 'ทุกแบรนด์', onChange: function () { filterManageProduct(); } });
+      tsAuditRowFilter = new TomSelect('#auditRowSelectFilter', { create: false, maxOptions: 500, placeholder: '🔍 ค้นหา Row...', onChange: function (val) { selectedAuditRow = val ? normalizeRowName(val) : 'ALL'; filterAuditReport(); } });
+      tsStockRowFilter = new TomSelect('#stockRowSelectFilter', { create: false, maxOptions: 500, placeholder: '🔍 ค้นหา Row...', onChange: function (val) { selectedStockRow = val ? normalizeRowName(val) : 'ALL'; filterStock(); } });
+    }
+
+    function populateMasterRowsDropdown(rows) {
+      const names = rows.map(r => r.row);
+      const groups = [...new Set(rows.map(r => r.type))];
+      const fill = (ts, withAll) => {
+        const cur = ts.getValue();
+        ts.clear(true); ts.clearOptions(); ts.clearOptionGroups();
+        if (withAll) ts.addOption({ value: '', text: '🌟 แสดงทุก Row' });
+        groups.forEach(g => ts.addOptionGroup(g, { label: g }));
+        rows.forEach(r => ts.addOption({ value: r.row, text: r.row + ' (' + r.type + ')', optgroup: r.type }));
+        if (cur && names.indexOf(cur) !== -1) ts.setValue(cur, true);
+        return cur && names.indexOf(cur) !== -1;
+      };
+      fill(tsMoveRow, false);
+      fill(tsAuditRowSetup, false);
+      if (!fill(tsAuditRowFilter, true)) selectedAuditRow = 'ALL';
+      if (!fill(tsStockRowFilter, true)) selectedStockRow = 'ALL';
+    }
+
+    // =====================================================================
+    // Audit session
+    // =====================================================================
+    function updateAuditSetupNotice() {
+      const notice = $id('auditSetupRoleNotice');
+      const rowVal = tsAuditRowSetup ? tsAuditRowSetup.getValue() : '';
+      notice.style.display = 'block';
+      if (isWH()) {
+        notice.className = 'alert alert-success py-1 px-2 small mb-0 mb-2 mt-2';
+        notice.innerHTML = '<i class="bi bi-shield-check me-1"></i><b>สิทธิ์ WH:</b> บันทึกนับครั้งที่ 1 (ยอดตั้งต้น)';
+      } else {
+        notice.className = 'alert alert-info py-1 px-2 small mb-0 mb-2 mt-2';
+        if (!rowVal) notice.innerHTML = '<i class="bi bi-info-circle me-1"></i><b>สิทธิ์ ' + esc(loggedInUser.role) + ':</b> (เลือกแถวเพื่อแสดงรอบนับ)';
+        else {
+          const rowClean = normalizeRowName(rowVal);
+          const rowData = globalData.auditReportData.filter(r => normalizeRowName(r.row) === rowClean);
+          const nextRound = rowData.some(r => r.count2Good !== '-') ? 3 : 2;
+          notice.innerHTML = '<i class="bi bi-info-circle me-1"></i><b>สิทธิ์ ' + esc(loggedInUser.role) + ':</b> บันทึกนับครั้งที่ ' + nextRound + ' <span class="text-muted">(นับได้แม้ยังไม่มียอดตั้งต้นจาก WH)</span>';
+        }
+      }
+    }
+
+    function promptStartAuditSession() {
+      const row = normalizeRowName(tsAuditRowSetup.getValue());
+      if (!row || row === '-') { showToast('ระบุแถวให้ครบ', 'error'); return; }
+      const hasStaffCounted = globalData.auditReportData.some(r => r.roles && r.roles.some(role => role !== 'Warehouse'));
+      if (isWH() && hasStaffCounted) { new bootstrap.Modal($id('auditClearConfirmModal')).show(); return; }
+      executeStartAuditLogic(loggedInUser.name, row, loggedInUser.role);
+    }
+    function executeStartAuditLogic(user, row, role) {
+      $id('confirmUserText').innerText = user + ' [' + role + ']'; $id('confirmRowText').innerText = row;
+      const cycleEl = $id('confirmCycleText');
+      if (role === 'Warehouse') { cycleEl.innerText = 'เริ่มนับครั้งที่ 1 (WH)'; cycleEl.className = 'badge bg-warning text-dark fs-6 px-2 py-1'; }
+      else {
+        const rowData = globalData.auditReportData.filter(r => normalizeRowName(r.row) === normalizeRowName(row));
+        const nextRound = rowData.some(r => r.count2Good !== '-') ? 3 : 2;
+        cycleEl.innerText = 'เริ่มนับครั้งที่ ' + nextRound; cycleEl.className = 'badge bg-primary fs-6 px-2 py-1';
+      }
+      $id('confirmWarehouseWarning').style.display = 'none';
+      auditConfirmModal.show();
+    }
+    function continueWithoutClearing() {
+      bootstrap.Modal.getInstance($id('auditClearConfirmModal')).hide();
+      executeStartAuditLogic(loggedInUser.name, normalizeRowName(tsAuditRowSetup.getValue()), loggedInUser.role);
+    }
+    function downloadAuditCSVAndClear() {
+      downloadCSV('Audit_GlobalSummary_' + new Date().getTime() + '.csv', auditCsvRows(globalData.auditReportData));
+      showGlobalLoader('กำลังล้างข้อมูลรอบเก่าทั้งระบบ...');
+      gs('clearAllAuditData').then(() => {
+        showToast('ล้างข้อมูลและโหลดไฟล์สำเร็จ! (สำรองไว้ในชีท AuditsArchive)', 'success');
+        const m = bootstrap.Modal.getInstance($id('auditClearConfirmModal')); if (m) m.hide();
+        return loadAllData();
+      }).catch(errToast).finally(hideGlobalLoader);
+    }
+    function startAuditSessionConfirmed() {
+      auditConfirmModal.hide();
+      const row = normalizeRowName(tsAuditRowSetup.getValue());
+      currentAuditSession = { active: true, user: loggedInUser.name, role: loggedInUser.role, row: row };
+      $id('sessionRowDisplay').innerText = row; $id('sessionRoleBadge').innerText = currentAuditSession.role;
+      $id('auditSetupBox').style.display = 'none'; $id('auditCountingBox').style.display = 'block';
+      resetAuditProductFields(); showToast('เข้าสู่รอบการตรวจนับ [' + row + ']', 'success');
+    }
+    function endAuditSessionDirectly() {
+      currentAuditSession.active = false;
+      $id('auditCountingBox').style.display = 'none'; $id('auditSetupBox').style.display = 'block';
+      resetAuditProductFields(); showToast('ออกจากรอบการตรวจนับ', 'success');
+    }
+    function resetAuditProductFields() {
+      ['aBarcodeStr', 'aCartons', 'aPacks', 'aPieces', 'aNote'].forEach(id => $id(id).value = '');
+      if (fpickrAuditMfd) fpickrAuditMfd.clear();
+      if (fpickrAuditExp) fpickrAuditExp.clear();
+      $id('aSelectedProductCard').style.display = 'none'; $id('aExpChipsWrapper').style.display = 'none';
+      $id('sessionDynamicRoundBadge').style.display = 'none';
+      resetAllowedUnitsUI('a');
+      calculateAuditUnits();
+    }
+
+    // [แก้ไข] ผู้ที่ไม่ใช่ WH นับได้เสมอ: ถ้าไม่มียอดของล็อตนี้ / ยังไม่มีนับครั้งที่ 2 => นับครั้งที่ 2
+    function updateAuditRoundBadge() {
+      const badge = $id('sessionDynamicRoundBadge');
+      const barcode = $id('aBarcodeStr').value.trim();
+      if (!currentAuditSession.active || !barcode || $id('aSelectedProductCard').style.display === 'none') { badge.style.display = 'none'; return; }
+      badge.style.display = 'inline-block';
+      if (currentAuditSession.role === 'Warehouse') { badge.innerText = 'นับครั้งที่ 1 (WH)'; badge.className = 'badge bg-warning text-dark ms-1'; return; }
+      const mfd = readDateSoft('aMFDDate'), exp = readDateSoft('aExpDate');
+      const g = globalData.auditReportData.find(r => normalizeRowName(r.row) === currentAuditSession.row && r.barcode === barcode && r.mfdDate === mfd && r.expDate === exp);
+      let nextRound = '2';
+      if (g) nextRound = g.count2Good === '-' ? '2' : (g.count3Good === '-' ? '3' : '4+');
+      badge.innerText = 'นับครั้งที่ ' + nextRound + ((!g || g.startGood === '-') ? ' (ยังไม่มียอด WH)' : '');
+      badge.className = 'badge bg-primary ms-1';
+    }
+
+    function searchBarcodeAudit(e) { if (e.key === 'Enter') { e.preventDefault(); triggerBarcodeAudit(); } }
+    function triggerBarcodeAudit() {
+      const bcode = $id('aBarcodeStr').value.trim();
+      if (!bcode) { showToast('กรุณาระบุบาร์โค้ด', 'error'); return; }
+      const meta = getMeta(bcode);
+      if (!meta) { $id('aSelectedProductCard').style.display = 'none'; $id('aExpChipsWrapper').style.display = 'none'; showToast('ไม่พบสินค้ารหัสนี้ในระบบ', 'error'); return; }
+      if (meta.status !== 'Active') { showToast('สินค้านี้ถูกตั้งเป็น Inactive', 'error'); return; }
+      onSelectAuditProductChange(bcode);
+    }
+    function onSelectAuditProductChange(barcode) {
+      const meta = getMeta(barcode);
+      const allBatches = globalData.products.filter(p => p.barcode === barcode);
+      $id('aSelectedProductCard').style.display = 'block';
+      $id('aShowBarcode').innerText = meta.barcode;
+      applyAllowedUnitsUI('a', meta);
+      const safe = safeUrl(meta.imageUrl);
+      $id('aProductImagePreview').innerHTML = safe ? '<img src="' + esc(safe) + '" style="width:100%; height:100%; object-fit:cover;">' : '<i class="bi bi-image text-muted fs-4"></i>';
+      $id('aPackRatioInfo').innerText = meta.name;
+
+      const lots = allBatches.filter(b => b.expDate !== '-');
+      const wrap = $id('aExpChipsWrapper');
+      if (lots.length) {
+        wrap.style.display = 'block';
+        $id('aExpChipsContainer').innerHTML = lots.map(b => '<button type="button" class="btn btn-sm btn-outline-warning text-dark py-0" data-act="lot-audit" data-mfd="' + esc(b.mfdDate) + '" data-exp="' + esc(b.expDate) + '">MFD: ' + esc(b.mfdDate) + ' | ' + esc(EXP_LABEL) + ': ' + esc(b.expDate) + '</button>').join('');
+      } else wrap.style.display = 'none';
+      updateAuditRoundBadge();
+      calculateAuditUnits();
+    }
+
+    function triggerAuditFinishSubmit() {
+      const barcode = $id('aBarcodeStr').value.trim();
+      let total = 0;
+      try { total = readQtyFields('a').reduce((s, v) => s + v, 0); } catch (e) { showToast(e.message, 'error'); return; }
+      if (!barcode || total === 0) { endAuditSessionDirectly(); return; }
+      handleAuditSubmit(new Event('submit'), 'FINISH');
+    }
+
+    function handleAuditSubmit(e, actionType) {
+      if (e) e.preventDefault();
+      if (!currentAuditSession.active) { showToast('เริ่มต้นรอบก่อน', 'error'); return; }
+      const barcode = $id('aBarcodeStr').value.trim();
+      if (!barcode) { showToast('ระบุบาร์โค้ดก่อน', 'error'); return; }
+      let vals, mfd, exp;
+      try { vals = readQtyFields('a'); mfd = readDate('aMFDDate'); exp = readDate('aExpDate'); }
+      catch (err) { showToast(err.message, 'error'); return; }
+      if (vals.reduce((s, v) => s + v, 0) <= 0) { showToast('กรุณาระบุจำนวนอย่างน้อย 1 หน่วย', 'error'); return; }
+
+      const payload = { locationRow: currentAuditSession.row, barcode: barcode, mfdDate: mfd, expDate: exp, cartons: vals[0], packs: vals[1], pieces: vals[2], note: $id('aNote').value.trim() };
+      showGlobalLoader('กำลังบันทึกข้อมูล...');
+      gs('recordAudit', payload).then(res => {
+        showToast(res.message, 'success');
+        resetAuditProductFields();
+        if (actionType === 'FINISH') { currentAuditSession.active = false; endAuditSessionQuiet(); }
+        return loadAllData();
+      }).catch(errToast).finally(hideGlobalLoader);
+    }
+    function endAuditSessionQuiet() { $id('auditCountingBox').style.display = 'none'; $id('auditSetupBox').style.display = 'block'; }
+
+    // =====================================================================
+    // Movement form
+    // =====================================================================
+    function resetMoveForm() {
+      $id('moveForm').reset();
+      fpickrMoveMfd.clear(); fpickrMoveExp.clear();
+      if (tsMoveRow) tsMoveRow.clear(true);
+      if (tsDest) tsDest.clear(true);
+      $id('destinationBox').style.display = 'none';
+      $id('selectedProductCard').style.display = 'none';
+      $id('expChipsWrapper').style.display = 'none';
+      ['goodUnitsText', 'grandTotalUnitsText'].forEach(id => $text(id, '0'));
+      resetAllowedUnitsUI('m');
+    }
+    function onTypeChange() {
+      $id('destinationBox').style.display = ($id('mType').value === 'OUT') ? 'block' : 'none';
+      if ($id('mBarcodeStr').value.trim()) triggerBarcodeMove();
+    }
+    function searchBarcodeMove(e) { if (e.key === 'Enter') { e.preventDefault(); triggerBarcodeMove(); } }
+    function triggerBarcodeMove() {
+      const bcode = $id('mBarcodeStr').value.trim();
+      if (!bcode) { showToast('กรุณาระบุบาร์โค้ด', 'error'); return; }
+      const meta = getMeta(bcode);
+      if (!meta) { $id('selectedProductCard').style.display = 'none'; $id('expChipsWrapper').style.display = 'none'; showToast('ไม่พบสินค้ารหัสนี้ในระบบ', 'error'); return; }
+      if (meta.status !== 'Active') { showToast('สินค้านี้ถูกตั้งเป็น Inactive', 'error'); return; }
+      onSelectProductChange(bcode);
+    }
+    function onSelectProductChange(barcode) {
+      const meta = getMeta(barcode);
+      const allBatches = globalData.products.filter(p => p.barcode === barcode);
+      $id('selectedProductCard').style.display = 'block';
+      $id('showBarcode').innerText = meta.barcode;
+      applyAllowedUnitsUI('m', meta);
+      const safe = safeUrl(meta.imageUrl);
+      $id('productImagePreview').innerHTML = safe ? '<img src="' + esc(safe) + '" style="width:100%; height:100%; object-fit:cover;">' : '<i class="bi bi-image text-muted fs-4"></i>';
+      $id('packRatioInfo').innerText = meta.name;
+      $id('stockPreviewText').innerText = formatQty(meta.totalQty) + ' (จากทุกล็อต)';
+
+      const lots = allBatches.filter(b => b.expDate !== '-');
+      const wrap = $id('expChipsWrapper');
+      if (lots.length) {
+        wrap.style.display = 'block';
+        $id('expChipsContainer').innerHTML = lots.map(b => '<button type="button" class="btn btn-sm btn-outline-primary py-0" data-act="lot-move" data-mfd="' + esc(b.mfdDate) + '" data-exp="' + esc(b.expDate) + '">MFD: ' + esc(b.mfdDate) + ' | ' + esc(EXP_LABEL) + ': ' + esc(b.expDate) + ' (มี ' + esc(formatQty(b.qty)) + ')</button>').join('');
+      } else wrap.style.display = 'none';
+      calculateAllUnits();
+    }
+
+    function handleMovement(e) {
+      e.preventDefault();
+      const barcode = $id('mBarcodeStr').value.trim();
+      const type = $id('mType').value;
+      if (!barcode) { showToast('กรอกข้อมูลให้ครบถ้วน', 'error'); return; }
+      if (!isWH()) { showToast('อนุญาตเฉพาะ WH', 'error'); return; }
+
+      let destination = '-';
+      if (type === 'OUT') { destination = (tsDest.getValue() || '').trim(); if (!destination) { showToast('ระบุปลายทาง', 'error'); return; } }
+
+      let vals, mfd, exp;
+      try { vals = readQtyFields('m'); mfd = readDate('mMFDDate'); exp = readDate('mExpDate'); }
+      catch (err) { showToast(err.message, 'error'); return; }
+      const total = vals.reduce((s, v) => s + v, 0);
+      if (type !== 'ADJUST' && total <= 0) { showToast('กรุณาระบุจำนวนอย่างน้อย 1 หน่วย', 'error'); return; }
+      if (type === 'ADJUST' && total === 0 && !confirm('ยอดที่ปรับเป็น 0 — ต้องการตั้งสต็อกของล็อตนี้เป็น 0 ใช่หรือไม่?')) return;
+      if (type === 'ADJUST' && total > 0 && !confirm('ADJUST จะตั้งยอดของล็อตนี้ให้เท่ากับที่กรอกทุกหน่วย (หน่วยที่ไม่ได้กรอกจะถูกตั้งเป็น 0)\nต้องการดำเนินการต่อหรือไม่?')) return;
+
+      const payload = {
+        type: type, barcode: barcode, locationRow: normalizeRowName(tsMoveRow.getValue()) || '-', destination: destination,
+        mfdDate: mfd, expDate: exp, cartons: vals[0], packs: vals[1], pieces: vals[2], note: $id('mNote').value.trim()
+      };
+      showGlobalLoader('กำลังบันทึกข้อมูล...');
+      gs('recordMovement', payload).then(res => {
+        showToast(res.message, 'success');
+        resetMoveForm();
+        return loadAllData();
+      }).catch(errToast).finally(hideGlobalLoader);
+    }
+
+    // =====================================================================
+    // Tables
+    // =====================================================================
+    function renderAuditReportTable(list) {
+      if (!globalData.auditReportData.length) { $set('auditReportTableBody', '<tr><td colspan="12" class="text-center py-4 text-muted">ยังไม่มีประวัติ</td></tr>'); return; }
+      if (!list.length) { $set('auditReportTableBody', '<tr><td colspan="12" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>'); return; }
+      const canEdit = u => isWH() || (u && u === loggedInUser.name);
+      const btn = (idx, user, cls, label) => (idx && canEdit(user)) ? '<button class="btn ' + cls + ' btn-sm py-0 px-1 me-1 mb-1" data-act="edit-rec" data-sheet="Audits" data-row="' + idx + '"><i class="bi bi-pencil"></i> ' + label + '</button>' : '';
+      $set('auditReportTableBody', list.map(r => {
+        const u = v => (v !== '-' ? esc(v) : '-');
+        return '<tr>' +
+          '<td class="fw-bold align-middle"><span class="badge badge-row">' + esc(r.row) + '</span></td>' +
+          '<td class="align-middle"><div class="fw-bold text-dark">' + esc(r.name) + '</div><small class="text-muted font-monospace">' + esc(r.barcode) + ' • ' + esc(r.brand) + '</small></td>' +
+          '<td class="text-center align-middle">' + esc(r.mfdDate) + '</td>' +
+          '<td class="text-center align-middle">' + esc(r.expDate) + '</td>' +
+          '<td class="text-end fw-bold align-middle ' + (r.startGood !== '-' ? 'text-success' : 'text-muted') + '" style="white-space: nowrap; font-size: 12px;">' + esc(formatQty(r.startGood)) + '</td>' +
+          '<td class="text-center align-middle"><small>' + u(r.startUser) + '</small></td>' +
+          '<td class="text-end fw-bold align-middle ' + (r.count2Good !== '-' ? 'text-primary' : 'text-muted') + '" style="white-space: nowrap; font-size: 12px;">' + esc(formatQty(r.count2Good)) + '</td>' +
+          '<td class="text-center align-middle"><small>' + u(r.count2User) + '</small></td>' +
+          '<td class="text-end fw-bold align-middle ' + (r.count3Good !== '-' ? 'text-secondary' : 'text-muted') + '" style="white-space: nowrap; font-size: 12px;">' + esc(formatQty(r.count3Good)) + '</td>' +
+          '<td class="text-center align-middle"><small>' + u(r.count3User) + '</small></td>' +
+          '<td class="align-middle"><small class="text-secondary">' + esc(r.noteSummary && r.noteSummary !== '-' ? r.noteSummary : '-') + '</small></td>' +
+          '<td class="text-center text-nowrap align-middle">' + btn(r.startSheetRowIndex, r.startUser, 'btn-outline-secondary', 'รอบ1') + btn(r.count2SheetRowIndex, r.count2User, 'btn-outline-info', 'รอบ2') + btn(r.count3SheetRowIndex, r.count3User, 'btn-outline-dark', 'รอบ3') + '</td>' +
+          '</tr>';
+      }).join(''));
+    }
+    function auditFiltered() {
+      const q = ($id('searchAuditReport').value || '').toLowerCase();
+      let list = globalData.auditReportData;
+      if (selectedAuditRow !== 'ALL') list = list.filter(r => normalizeRowName(r.row) === normalizeRowName(selectedAuditRow));
+      return applySort(list.filter(r => [r.row, r.barcode, r.name, r.brand, r.expDate, r.mfdDate, r.noteSummary].some(v => String(v).toLowerCase().includes(q))), 'audit');
+    }
+    function filterAuditReport() { try { renderAuditReportTable(auditFiltered()); } catch (e) { console.error(e); } }
+    const filterAuditReportDebounced = debounce(filterAuditReport);
+
+    function renderStockTable(products) {
+      const tbody = $id('stockTableBody'); if (!tbody) return;
+      if (!products.length) { tbody.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-muted">ไม่พบรายการ</td></tr>'; return; }
+      const grouped = new Map();
+      products.forEach(p => {
+        const key = p.barcode + '|' + p.locationRow;
+        if (!grouped.has(key)) grouped.set(key, { head: p, batches: [] });
+        grouped.get(key).batches.push(p);
+      });
+      let html = '';
+      grouped.forEach(g => {
+        const h = g.head;
+        const badge = h.isOut ? '<span class="badge badge-out">หมดสต็อก</span>' : (h.isLow ? '<span class="badge badge-low">ใกล้หมด</span>' : '<span class="badge badge-ok">ปกติ</span>');
+        const safe = safeUrl(h.imageUrl);
+        const imgHtml = safe ? '<img src="' + esc(safe) + '" style="width:60px; height:60px; object-fit:cover; border-radius:8px; margin-right:12px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.05);">' : '<div style="width:60px; height:60px; border-radius:8px; margin-right:12px; background:#f8fafc; border:1px solid #cbd5e1; display:flex; align-items:center; justify-content:center; color:#94a3b8;"><i class="bi bi-image fs-5"></i></div>';
+        const minUnitName = h.singleUnit ? unitLabel(h.singleUnit) : 'ลัง';
+        g.batches.forEach((b, idx) => {
+          const q = qOf(b.qty);
+          html += '<tr>';
+          html += '<td class="text-center align-middle">' + ((b.locationRow && b.locationRow !== '-') ? '<span class="badge badge-row">' + esc(b.locationRow) + '</span>' : '<span class="text-muted small">-</span>') + '</td>';
+          if (idx === 0) html += '<td rowspan="' + g.batches.length + '" class="align-middle"><div class="d-flex align-items-center">' + imgHtml + '<div><span class="badge bg-primary-subtle text-primary border border-primary-subtle mb-1">' + esc(h.brand) + '</span><div class="fw-bold text-dark">' + esc(h.name) + '</div><div class="text-muted font-monospace" style="font-size: 11px;"><i class="bi bi-upc-scan me-1"></i>' + esc(h.barcode) + '</div></div></div></td>';
+          html += '<td class="text-center align-middle">' + esc(b.mfdDate) + '</td>';
+          html += '<td class="text-center align-middle">' + ((b.expDate && b.expDate !== '-') ? esc(b.expDate) : '<span class="text-muted small">-</span>') + '</td>';
+          html += '<td class="text-center align-middle text-primary fw-bold">' + esc(b.shelfLife) + '</td>';
+          let rDays = '-';
+          if (!isEmptyVal(b.remainDays)) rDays = b.remainDays < 0 ? '<span class="text-danger fw-bold">' + b.remainDays + ' (หมดอายุ)</span>' : String(b.remainDays);
+          html += '<td class="text-center fw-bold align-middle">' + rDays + '</td>';
+          let pStr = '-';
+          if (!isEmptyVal(b.percentDay)) { const p = Number(b.percentDay); const c = p > 60 ? 'bg-success' : (p > 50 ? 'bg-warning text-dark' : 'bg-danger'); pStr = '<span class="badge ' + c + '">' + (p < 0 ? 0 : p) + '%</span>'; }
+          html += '<td class="text-center align-middle">' + pStr + '</td>';
+          html += '<td class="text-center fw-bold text-primary align-middle">' + (q.c !== 0 ? q.c.toLocaleString() : '-') + '</td>' +
+                  '<td class="text-center fw-bold text-primary align-middle">' + (q.p !== 0 ? q.p.toLocaleString() : '-') + '</td>' +
+                  '<td class="text-center fw-bold text-primary align-middle">' + (q.u !== 0 ? q.u.toLocaleString() : '-') + '</td>' +
+                  '<td class="text-center fw-bold text-success align-middle bg-light-subtle" style="white-space: nowrap;">' + esc(formatQty(q)) + '</td>';
+          if (idx === 0) html += '<td rowspan="' + g.batches.length + '" class="text-center text-muted align-middle">' + h.minStock.toLocaleString() + ' ' + minUnitName + '</td><td rowspan="' + g.batches.length + '" class="text-center align-middle">' + badge + '</td>';
+          html += '</tr>';
+        });
+      });
+      tbody.innerHTML = html;
+    }
+    function filterStock() {
+      try {
+        const q = ($id('searchStock').value || '').toLowerCase();
+        const brand = tsFilterBrand ? tsFilterBrand.getValue() : '';
+        let list = globalData.products.filter(p => p.status === 'Active');
+        if (selectedStockRow !== 'ALL') list = list.filter(p => normalizeRowName(p.locationRow) === normalizeRowName(selectedStockRow));
+        list = list.filter(p => [p.barcode, p.brand, p.name, p.locationRow].some(v => String(v).toLowerCase().includes(q)) && (brand === '' || p.brand === brand));
+        renderStockTable(applySort(list, 'stock'));
+      } catch (e) { console.error(e); }
+    }
+    const filterStockDebounced = debounce(filterStock);
+
+    function filterReconcile() {
+      try {
+        const q = ($id('searchRecon').value || '').toLowerCase();
+        const stockMap = {};
+        const ensure = (o, m, e) => { const k = o.barcode + '|' + m + '|' + e; if (!stockMap[k]) stockMap[k] = { barcode: o.barcode, name: o.name, brand: o.brand, mfd: m, exp: e, systemQty: zeroQ(), auditQty: zeroQ() }; return stockMap[k]; };
+        globalData.products.forEach(p => { if (p.status === 'Active') addQty(ensure(p, p.mfdDate || '-', p.expDate || '-').systemQty, p.qty, 1); });
+        globalData.auditReportData.forEach(a => {
+          let latest = zeroQ();
+          if (!isEmptyVal(a.count3Good)) latest = qOf(a.count3Good);
+          else if (!isEmptyVal(a.count2Good)) latest = qOf(a.count2Good);
+          else if (!isEmptyVal(a.startGood)) latest = qOf(a.startGood);
+          addQty(ensure(a, a.mfdDate || '-', a.expDate || '-').auditQty, latest, 1);
+        });
+        let list = Object.values(stockMap).map(i => { i.diff = addQty(addQty(zeroQ(), i.auditQty, 1), i.systemQty, -1); return i; });
+        list = list.filter(p => [p.barcode, p.name, p.mfd, p.exp, p.brand].some(v => String(v).toLowerCase().includes(q)));
+
+        const sumSys = zeroQ(), sumAud = zeroQ();
+        let diffCount = 0;
+        list.forEach(i => { addQty(sumSys, i.systemQty, 1); addQty(sumAud, i.auditQty, 1); if (!isZeroQty(i.diff)) diffCount++; });
+        const totalDiff = addQty(addQty(zeroQ(), sumAud, 1), sumSys, -1);
+
+        $text('recon-sys', formatQty(sumSys)); $text('recon-audit', formatQty(sumAud));
+        const dEl = $id('recon-diff'); dEl.innerText = formatDiff(totalDiff); dEl.className = 'fw-bold mt-1 mb-0 ' + diffClass(totalDiff);
+        const pEl = $id('recon-diff-pct'); pEl.innerText = diffCount.toLocaleString(); pEl.className = 'fw-bold mt-1 mb-0 ' + (diffCount ? 'text-danger' : 'text-muted');
+
+        const sorted = applySort(list, 'recon');
+        if (!sorted.length) { $set('reconTableBody', '<tr><td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>'); return; }
+        $set('reconTableBody', sorted.map(i => {
+          return '<tr><td class="font-monospace align-middle">' + esc(i.barcode) + '</td>' +
+            '<td class="align-middle"><span class="badge bg-primary-subtle text-primary mb-1">' + esc(i.brand) + '</span><div class="fw-bold text-dark">' + esc(i.name) + '</div></td>' +
+            '<td class="text-center align-middle">' + esc(i.mfd) + '</td><td class="text-center align-middle">' + esc(i.exp) + '</td>' +
+            '<td class="text-center fw-bold align-middle bg-primary bg-opacity-10 text-primary" style="white-space: nowrap; font-size: 12px;">' + esc(formatQty(i.systemQty)) + '</td>' +
+            '<td class="text-center fw-bold align-middle bg-warning bg-opacity-10 text-dark" style="white-space: nowrap; font-size: 12px;">' + esc(formatQty(i.auditQty)) + '</td>' +
+            '<td class="text-center fw-bold align-middle ' + diffClass(i.diff) + '" style="white-space: nowrap; font-size: 12px;">' + esc(formatDiff(i.diff)) + '</td></tr>';
+        }).join(''));
+      } catch (e) {
+        console.error(e);
+        $set('reconTableBody', '<tr><td colspan="7" class="text-center py-4 text-danger">เกิดข้อผิดพลาดในการแสดงผล</td></tr>');
+      }
+    }
+    const filterReconcileDebounced = debounce(filterReconcile);
+
+    function renderHistoryTable(list) {
+      const info = globalData.historyTruncated ? 'แสดงเฉพาะ ' + globalData.history.length.toLocaleString() + ' รายการล่าสุด' : '';
+      $text('histInfo', info);
+      if (!list.length) { $set('histTableBody', '<tr><td colspan="12" class="text-center py-4 text-muted">ยังไม่มีประวัติ</td></tr>'); return; }
+      const shown = list.slice(0, histLimit);
+      let html = shown.map(h => {
+        const roleBadge = h.userRole === 'Warehouse' ? '<span class="badge bg-primary ms-1" style="font-size:10px;">Warehouse</span>' : '<span class="badge bg-secondary ms-1" style="font-size:10px;">Staff</span>';
+        const typeCls = h.type === 'IN' ? 'bg-success' : (h.type === 'OUT' ? 'bg-danger' : 'bg-warning text-dark');
+        return '<tr>' +
+          '<td class="align-middle"><small class="text-muted">' + esc(h.time) + '</small></td>' +
+          '<td class="text-center align-middle"><span class="badge badge-row">' + esc(h.locationRow || '-') + '</span></td>' +
+          '<td class="font-monospace align-middle"><b>' + esc(h.barcode || '-') + '</b></td>' +
+          '<td class="align-middle"><b>' + esc(h.name) + '</b><br><small class="text-muted">' + esc(h.brand) + '</small></td>' +
+          '<td class="align-middle">' + (h.mfdDate !== '-' ? esc(h.mfdDate) : '<span class="text-muted small">-</span>') + '</td>' +
+          '<td class="align-middle">' + (h.expDate !== '-' ? esc(h.expDate) : '<span class="text-muted small">-</span>') + '</td>' +
+          '<td class="align-middle"><span class="badge ' + typeCls + '">' + esc(h.type) + '</span></td>' +
+          '<td class="align-middle">' + (h.destination && h.destination !== '-' ? '<span class="text-danger fw-bold"><i class="bi bi-geo-alt me-1"></i>' + esc(h.destination) + '</span>' : '-') + '</td>' +
+          '<td class="text-end fw-bold text-success align-middle" style="white-space: nowrap; font-size: 12px;">' + esc(formatQty(h.qty)) + '</td>' +
+          '<td class="align-middle"><b>' + esc(h.user) + '</b> ' + roleBadge + '</td><td class="align-middle">' + esc(h.note) + '</td>' +
+          '<td class="text-center align-middle">' + (isWH() ? '<button class="btn btn-outline-secondary btn-sm py-0 px-1" data-act="edit-rec" data-sheet="Movements" data-row="' + h.sheetRowIndex + '"><i class="bi bi-pencil"></i></button>' : '-') + '</td>' +
+          '</tr>';
+      }).join('');
+      if (list.length > histLimit) html += '<tr><td colspan="12" class="text-center py-2"><button class="btn btn-outline-primary btn-sm" data-act="hist-more">แสดงเพิ่ม (' + shown.length + ' / ' + list.length + ')</button></td></tr>';
+      $set('histTableBody', html);
+    }
+    function filterHistory() {
+      try {
+        const q = ($id('searchHist').value || '').toLowerCase();
+        const list = globalData.history.filter(h => [h.locationRow, h.barcode, h.brand, h.name, h.user, h.userRole, h.destination, h.note, h.expDate, h.mfdDate].some(v => String(v || '').toLowerCase().includes(q)));
+        renderHistoryTable(applySort(list, 'hist'));
+      } catch (e) { console.error(e); }
+    }
+    const filterHistoryDebounced = debounce(() => { histLimit = 300; filterHistory(); });
+
+    function renderProductTable(list) {
+      const tbody = $id('prodTableBody'); if (!tbody) return;
+      if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>'; return; }
+      tbody.innerHTML = list.map(p => {
+        const cartonOnly = p.packsPerCarton === 0 && p.unitsPerPack === 0;
+        const ctnTotal = (p.packsPerCarton === 0 ? 1 : p.packsPerCarton) * (p.unitsPerPack === 0 ? 1 : p.unitsPerPack);
+        let ratio;
+        if (cartonOnly) ratio = '<span class="text-muted">ไม่ได้ตั้งอัตราแปลง</span>';
+        else if (p.packsPerCarton > 1) ratio = '1 ลัง = ' + p.packsPerCarton + ' แพ็ค (' + ctnTotal + ' ชิ้น)<br><small class="text-muted">1 แพ็ค = ' + p.unitsPerPack + ' ชิ้น</small>';
+        else ratio = '1 ลัง = ' + ctnTotal + ' ชิ้น';
+        const statusBadge = p.status === 'Inactive' ? '<span class="badge bg-danger ms-1">Inactive</span>' : '';
+        const safe = safeUrl(p.imageUrl);
+        const imgHtml = safe ? '<img src="' + esc(safe) + '" style="width:60px; height:60px; object-fit:cover; border-radius:8px; margin-right:12px; border:1px solid #e2e8f0; box-shadow:0 2px 4px rgba(0,0,0,0.05);">' : '<div style="width:60px; height:60px; border-radius:8px; margin-right:12px; background:#f8fafc; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; color:#94a3b8;"><i class="bi bi-image fs-5"></i></div>';
+        return '<tr><td class="align-middle"><span class="font-monospace fw-bold">' + esc(p.barcode) + '</span></td>' +
+          '<td class="align-middle"><span class="badge bg-primary-subtle text-primary">' + esc(p.brand) + '</span></td>' +
+          '<td class="align-middle"><div class="d-flex align-items-center">' + imgHtml + '<div><b class="d-block">' + esc(p.name) + '</b>' + statusBadge + '</div></div></td>' +
+          '<td class="align-middle">' + ratio + '</td>' +
+          '<td class="text-center align-middle">' + allowedUnitsBadges(p.allowedUnits) + '</td>' +
+          '<td class="text-center align-middle">' + p.minStock.toLocaleString() + ' ' + (p.singleUnit ? unitLabel(p.singleUnit) : 'ลัง') + '</td>' +
+          '<td class="align-middle">' + (isWH() ? '<button class="btn btn-sm btn-outline-secondary" data-act="edit-product" data-barcode="' + esc(p.barcode) + '"><i class="bi bi-pencil"></i></button>' : '-') + '</td></tr>';
+      }).join('');
+    }
+    function filterManageProduct() {
+      try {
+        const q = ($id('searchManageProduct').value || '').toLowerCase();
+        const brand = tsFilterManageBrand ? tsFilterManageBrand.getValue() : '';
+        const list = (globalData.uniqueProducts || []).filter(p => [p.barcode, p.brand, p.name].some(v => String(v).toLowerCase().includes(q)) && (brand === '' || p.brand === brand));
+        renderProductTable(applySort(list, 'prod'));
+      } catch (e) { console.error(e); }
+    }
+    const filterManageProductDebounced = debounce(filterManageProduct);
+
+    // =====================================================================
+    // Product modal
+    // =====================================================================
+    function updateUnitMultiplierPreview() {
+      const p = Number($id('pPacksPerCarton').value) || 0, u = Number($id('pUnitsPerPack').value) || 0;
+      $id('unitFormulaPreview').innerText = (p === 0 && u === 0)
+        ? 'ไม่ตั้งอัตราแปลง: เกณฑ์แจ้งเตือนจะเทียบกับจำนวนที่บันทึกตรงๆ'
+        : 'สรุป: 1 ลัง = ' + (p === 0 ? 1 : p) + ' แพ็ค (' + (p === 0 ? 1 : p) * (u === 0 ? 1 : u) + ' ชิ้น) | 1 แพ็ค = ' + (u === 0 ? 1 : u) + ' ชิ้น (ใช้เทียบเกณฑ์เตือนเท่านั้น)';
+    }
+    function openProductModal() {
+      if (!isWH()) { showToast('อนุญาตเฉพาะ Warehouse', 'error'); return; }
+      editingProduct = null;
+      $id('pModalTitle').innerText = 'เพิ่มสินค้าใหม่ Master Data';
+      $id('pBarcode').readOnly = false;
+      $id('btnScanProduct').style.display = '';
+      $id('pForm').reset();
+      $id('pImageURL').value = '';
+      ['pAllowCarton', 'pAllowPack', 'pAllowPiece'].forEach(id => $id(id).checked = true);
+      updateUnitMultiplierPreview();
+      pModal.show();
+    }
+    function editProduct(p) {
+      editingProduct = p;
+      $id('pModalTitle').innerText = 'แก้ไขสินค้า: ' + p.barcode;
+      $id('pBarcode').value = p.barcode; $id('pBarcode').readOnly = true;
+      $id('btnScanProduct').style.display = 'none';   // แก้ไข: Barcode แก้ไม่ได้ จึงซ่อนปุ่มสแกน
+      $id('pBrand').value = p.brand || ''; $id('pName').value = p.name;
+      $id('pPacksPerCarton').value = p.packsPerCarton; $id('pUnitsPerPack').value = p.unitsPerPack;
+      $id('pMinStock').value = p.minStock; $id('pStatus').value = p.status; $id('pImageURL').value = p.imageUrl || '';
+      const allowed = (p.allowedUnits && p.allowedUnits.length) ? p.allowedUnits : ['CARTON', 'PACK', 'PIECE'];
+      $id('pAllowCarton').checked = allowed.indexOf('CARTON') !== -1;
+      $id('pAllowPack').checked = allowed.indexOf('PACK') !== -1;
+      $id('pAllowPiece').checked = allowed.indexOf('PIECE') !== -1;
+      updateUnitMultiplierPreview();
+      pModal.show();
+    }
+    function handleProductSubmit(e) {
+      e.preventDefault();
+      const allowedList = [];
+      if ($id('pAllowCarton').checked) allowedList.push('CARTON');
+      if ($id('pAllowPack').checked) allowedList.push('PACK');
+      if ($id('pAllowPiece').checked) allowedList.push('PIECE');
+      if (!allowedList.length) { showToast('กรุณาเลือกหน่วยที่อนุญาตให้กรอกอย่างน้อย 1 หน่วย', 'error'); return; }
+
+      const newP = Number($id('pPacksPerCarton').value) || 0, newU = Number($id('pUnitsPerPack').value) || 0;
+      if (editingProduct && editingProduct.hasRecords && (newP !== editingProduct.packsPerCarton || newU !== editingProduct.unitsPerPack)) {
+        if (!confirm('สินค้านี้มีรายการรับ-จ่าย/นับอยู่แล้ว\nการเปลี่ยนอัตราแปลงหน่วยจะมีผลกับการคำนวณสถานะ "ใกล้หมด/หมดสต็อก" เท่านั้น (ยอดคงเหลือไม่เปลี่ยน)\n\nต้องการดำเนินการต่อหรือไม่?')) return;
+      }
+      showGlobalLoader('กำลังบันทึก...');
+      gs('saveProduct', {
+        barcode: $id('pBarcode').value, brand: $id('pBrand').value, name: $id('pName').value,
+        packsPerCarton: $id('pPacksPerCarton').value, unitsPerPack: $id('pUnitsPerPack').value,
+        minStock: $id('pMinStock').value, status: $id('pStatus').value, imageUrl: $id('pImageURL').value,
+        allowedUnits: allowedList.join(',')
+      }).then(() => { showToast('บันทึกสำเร็จ', 'success'); pModal.hide(); return loadAllData(); })
+        .catch(errToast).finally(hideGlobalLoader);
+    }
+
+    // =====================================================================
+    // CSV
+    // =====================================================================
+    function downloadAuditReportCSV() {
+      const list = auditFiltered();
+      if (!list.length) { showToast('ไม่พบข้อมูลสำหรับดาวน์โหลด', 'error'); return; }
+      downloadCSV('AuditReport_' + selectedAuditRow + '_' + new Date().toISOString().split('T')[0] + '.csv', auditCsvRows(list));
+    }
+
+    // =====================================================================
+    // Edit / delete record (Audits, Movements)
+    // =====================================================================
+    const SHEET_HEADERS = {
+      Audits: ['Timestamp', 'AuditID', 'Row', 'Barcode', 'Brand', 'Name', 'MFD', EXP_LABEL, 'ลัง', 'แพ็ค', 'ชิ้น', 'ผู้ตรวจ', 'Role', 'หมายเหตุ'],
+      Movements: ['Timestamp', 'ID', 'Row', 'Barcode', 'Brand', 'Name', 'MFD', EXP_LABEL, 'ประเภท', 'ปลายทาง', 'ลัง', 'แพ็ค', 'ชิ้น', 'ผู้บันทึก', 'Role', 'หมายเหตุ']
+    };
+    const EDITABLE_HEADERS = {
+      Audits: ['MFD', EXP_LABEL, 'ลัง', 'แพ็ค', 'ชิ้น', 'หมายเหตุ'],
+      Movements: ['MFD', EXP_LABEL, 'ประเภท', 'ปลายทาง', 'ลัง', 'แพ็ค', 'ชิ้น', 'หมายเหตุ']
+    };
+
+    function loadRecordDetailForEdit(sheetName, rowIndex) {
+      showGlobalLoader('โหลดข้อมูล...');
+      gs('getRowData', sheetName, rowIndex).then(res => {
+        if (res.success) openEditRecordModal(sheetName, rowIndex, res.values); else showToast(res.message, 'error');
+      }).catch(errToast).finally(hideGlobalLoader);
+    }
+    function openEditRecordModal(sheetName, rowIndex, values) {
+      currentEditingSheet = sheetName; currentEditingRowIndex = rowIndex; currentEditingExpectedId = values[1];
+      $id('editModalTitle').innerText = 'แก้ไข [' + sheetName + '] รหัส ' + values[1];
+      const headers = SHEET_HEADERS[sheetName] || [];
+      const editable = EDITABLE_HEADERS[sheetName] || [];
+      $id('editModalBody').innerHTML = '<div class="row g-2" style="max-height: 65vh; overflow-y: auto; padding: 4px;">' + values.map((val, i) => {
+        const h = headers[i] || ('ข้อมูลช่องที่ ' + (i + 1));
+        const ok = editable.indexOf(h) !== -1;
+        let input;
+        if (ok && h === 'ประเภท') {
+          input = '<select class="form-select form-select-sm edit-field-input">' + ['IN', 'OUT', 'ADJUST'].map(t => '<option value="' + t + '"' + (t === val ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>';
+        } else {
+          const isDate = (h === 'MFD' || h === EXP_LABEL) && ok;
+          const isNum = ok && (h === 'ลัง' || h === 'แพ็ค' || h === 'ชิ้น');
+          input = '<input type="' + (isNum ? 'number' : 'text') + '"' + (isNum ? ' step="any" min="0"' : '') + ' class="form-control form-control-sm edit-field-input ' + (ok ? '' : 'bg-light text-secondary') + (isDate ? ' edit-date-picker bg-white' : '') + '" value="' + esc(val) + '"' + (ok ? '' : ' readonly') + '>';
+        }
+        return '<div class="col-12 col-md-6"><label class="small fw-bold text-muted mb-1">' + esc(h) + ':</label>' + input + '</div>';
+      }).join('') + '</div>';
+      editRowModalInstance.show();
+      flatpickr('.edit-date-picker', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true });
+    }
+    function saveRecordEdit() {
+      if (currentEditingRowIndex <= 0 || !currentEditingSheet) return;
+      const updated = Array.from(document.querySelectorAll('.edit-field-input')).map(inp => inp.value.trim());
+      showGlobalLoader('บันทึก...'); editRowModalInstance.hide();
+      gs('updateRecord', currentEditingSheet, currentEditingRowIndex, currentEditingExpectedId, updated)
+        .then(() => { showToast('แก้ไขสำเร็จ', 'success'); return loadAllData(); })
+        .catch(errToast).finally(hideGlobalLoader);
+    }
+    function executeDeleteRecord() {
+      if (currentEditingRowIndex <= 0 || !currentEditingSheet) return;
+      if (!confirm('ยืนยันลบรายการ ' + currentEditingExpectedId + ' ?')) return;
+      showGlobalLoader('ลบ...'); editRowModalInstance.hide();
+      gs('deleteRecord', currentEditingSheet, currentEditingRowIndex, currentEditingExpectedId)
+        .then(() => { showToast('ลบสำเร็จ', 'success'); return loadAllData(); })
+        .catch(errToast).finally(hideGlobalLoader);
+    }
+  </script>
+</body>
+</html>

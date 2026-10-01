@@ -69,7 +69,10 @@
 
     /* Scanner modal ต้องอยู่เหนือ loader/toast อื่นๆ ที่ไม่ใช่ตัวมันเอง */
     #scanModal { z-index: 100001; }
-    #scanReader video { border-radius: 12px; }
+    #scanReader { position: relative; overflow: hidden; border-radius: 12px; background: #000; min-height: 220px; }
+    #scanReader video { width: 100%; display: block; }
+    #scanReader canvas.drawingBuffer { display: none; } /* ซ่อน canvas debug ของ Quagga */
+    #scanReader::after { content: ''; position: absolute; left: 8%; right: 8%; top: 50%; height: 2px; background: rgba(239,68,68,.85); box-shadow: 0 0 8px rgba(239,68,68,.8); pointer-events: none; }
   </style>
 </head>
 <body class="p-2 p-md-4">
@@ -585,7 +588,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 
   <script>
     // =====================================================================
@@ -828,7 +831,7 @@
     let scanModal = null, scanner = null, scanTarget = '', scanBusy = false;
 
     function openScanner(targetInputId) {
-      if (typeof Html5Qrcode === 'undefined') { showToast('โหลดตัวสแกนไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช', 'error'); return; }
+      if (typeof Quagga === 'undefined') { showToast('โหลดตัวสแกนไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช', 'error'); return; }
       if (!scanModal) scanModal = new bootstrap.Modal($id('scanModal'));
       scanTarget = targetInputId;
       scanBusy = false;
@@ -837,33 +840,51 @@
       $id('scanModal').addEventListener('shown.bs.modal', startScanner, { once: true });
       scanModal.show();
     }
-
+    const QUAGGA_READERS = ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader', 'code_39_reader', 'i2of5_reader'];
+    let quaggaRunning = false, lastCode = '', lastCount = 0;
+    
     function startScanner() {
-      const F = Html5QrcodeSupportedFormats;
-      scanner = new Html5Qrcode('scanReader', {
-        formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE],
-        useBarCodeDetectorIfSupported: true,
-        verbose: false
-      });
-      scanner.start(
-        { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: (w, h) => ({ width: Math.floor(Math.min(w, 420) * 0.9), height: Math.floor(Math.min(h, 420) * 0.45) })
+      lastCode = ''; lastCount = 0;
+      Quagga.init({
+        inputStream: {
+          type: 'LiveStream',
+          target: $id('scanReader'),
+          constraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+          area: { top: '25%', right: '5%', bottom: '25%', left: '5%' }   // สแกนเฉพาะแถบกลางจอ เร็วและแม่นขึ้น
         },
-        onScanSuccess,
-        () => {}
-      ).then(() => {
-        $id('scanMsg').innerText = 'เล็งกล้องไปที่บาร์โค้ด';
-      }).catch(err => {
-        const m = String(err && err.message ? err.message : err);
-        $id('scanMsg').className = 'small text-danger text-center mt-2';
-        $id('scanMsg').innerText = /Permission|NotAllowed/i.test(m)
-          ? 'ไม่ได้รับอนุญาตใช้กล้อง กรุณาอนุญาตกล้องในเบราว์เซอร์ หรือเปิดลิงก์ด้วย Chrome / Safari โดยตรง'
-          : 'เปิดกล้องไม่สำเร็จ: ' + m;
+        locator: { patchSize: 'medium', halfSample: true },
+        numOfWorkers: Math.min(navigator.hardwareConcurrency || 2, 4),
+        frequency: 10,
+        locate: true,
+        decoder: { readers: QUAGGA_READERS }
+      }, function (err) {
+        if (err) {
+          const m = String(err && err.message ? err.message : err);
+          $id('scanMsg').className = 'small text-danger text-center mt-2';
+          $id('scanMsg').innerText = /Permission|NotAllowed/i.test(m)
+            ? 'ไม่ได้รับอนุญาตใช้กล้อง กรุณาอนุญาตกล้องในเบราว์เซอร์ หรือเปิดลิงก์ด้วย Chrome / Safari โดยตรง'
+            : 'เปิดกล้องไม่สำเร็จ: ' + m;
+          return;
+        }
+        Quagga.onDetected(onQuaggaDetected);
+        Quagga.start();
+        quaggaRunning = true;
+        $id('scanMsg').innerText = 'เล็งบาร์โค้ดให้พาดเส้นแดง';
       });
     }
-
+    
+    // กันอ่านผิด: ค่า error เฉลี่ยต้องต่ำ และต้องอ่านได้ค่าเดิม 2 ครั้งติด
+    function onQuaggaDetected(res) {
+      if (scanBusy) return;
+      const cc = res && res.codeResult;
+      if (!cc || !cc.code) return;
+      const errs = (cc.decodedCodes || []).filter(x => x.error !== undefined).map(x => x.error);
+      const avg = errs.length ? errs.reduce((a, b) => a + b, 0) / errs.length : 1;
+      if (avg > 0.15) return;
+      if (cc.code === lastCode) lastCount++; else { lastCode = cc.code; lastCount = 1; }
+      if (lastCount >= 2) onScanSuccess(cc.code);
+    }
+    
     function onScanSuccess(text) {
       if (scanBusy) return;
       scanBusy = true;
@@ -875,11 +896,27 @@
         el.value = String(text).trim();
         if (target === 'aBarcodeStr') triggerBarcodeAudit();
         else if (target === 'mBarcodeStr') triggerBarcodeMove();
-        // target === 'pBarcode' (หน้าเพิ่ม/แก้ไขสินค้า): ใส่ค่าลงช่องเฉยๆ ไม่ต้องค้นหา
       });
     }
-
-    // ทางสำรอง: เปิดแอปกล้องของเครื่อง ถ่ายรูป แล้วอ่านบาร์โค้ดจากรูป (ไม่ต้องขอสิทธิ์กล้องในเบราว์เซอร์)
+    
+    async function stopQuagga() {
+      if (!quaggaRunning) return;
+      try { Quagga.offDetected(onQuaggaDetected); await Quagga.stop(); } catch (e) { console.warn(e); }
+      quaggaRunning = false;
+      $id('scanReader').innerHTML = '';
+    }
+    
+    // ทางสำรอง: ถ่ายรูปแล้วถอดรหัสจากรูป (ลองหลายขนาดเพื่อเพิ่มโอกาสอ่านได้)
+    function quaggaDecode(src, size) {
+      return new Promise(resolve => {
+        Quagga.decodeSingle({
+          src: src, numOfWorkers: 0, inputStream: { size: size },
+          locator: { patchSize: 'medium', halfSample: false },
+          decoder: { readers: QUAGGA_READERS }
+        }, r => resolve(r && r.codeResult ? r.codeResult.code : null));
+      });
+    }
+    
     async function scanFromPhoto(input) {
       const file = input.files && input.files[0];
       input.value = '';
@@ -887,37 +924,28 @@
       const msg = $id('scanMsg');
       msg.className = 'small text-muted text-center mt-2';
       msg.innerText = 'กำลังอ่านบาร์โค้ดจากรูป...';
+      await stopQuagga();
+      const url = URL.createObjectURL(file);
+      let code = null;
       try {
-        if (scanner && scanner.isScanning) { await scanner.stop(); }
-      } catch (e) { console.warn(e); }
-      let reader = null;
-      try {
-        const F = Html5QrcodeSupportedFormats;
-        reader = new Html5Qrcode('scanReader', {
-          formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE],
-          useBarCodeDetectorIfSupported: true,
-          verbose: false
-        });
-        const text = await reader.scanFile(file, false);
-        try { reader.clear(); } catch (e) {}
-        onScanSuccess(text);
-      } catch (err) {
-        try { if (reader) reader.clear(); } catch (e) {}
+        for (const size of [1600, 1024, 800, 2000]) {
+          code = await quaggaDecode(url, size);
+          if (code) break;
+        }
+      } finally { URL.revokeObjectURL(url); }
+      if (code) onScanSuccess(code);
+      else {
         msg.className = 'small text-danger text-center mt-2';
         msg.innerText = 'อ่านบาร์โค้ดจากรูปไม่ได้ ลองถ่ายใหม่ให้เห็นบาร์โค้ดชัด ตรง และมีแสงพอ';
       }
     }
-
+    
     async function closeScanner() {
-      try {
-        if (scanner) {
-          if (scanner.isScanning) await scanner.stop();
-          scanner.clear();
-        }
-      } catch (e) { console.warn(e); }
+      await stopQuagga();
       scanner = null;
       if (scanModal) scanModal.hide();
     }
+
 
     // =====================================================================
     // Login / Logout

@@ -971,7 +971,7 @@
           $id('loginForm').reset();
           showLoggedInUI();
           showToast('ยินดีต้อนรับคุณ ' + loggedInUser.name, 'success');
-          loadAllData(true);
+          return loadAllData(true);      // ← เพิ่ม return
         } else {
           showToast(response.message, 'error');
         }

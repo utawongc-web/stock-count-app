@@ -294,6 +294,9 @@
         <!-- ===== สต็อกคงเหลือ ===== -->
         <div class="tab-pane fade" id="tab-stock">
           <div class="card p-3">
+            <div class="d-flex justify-content-end mb-2">
+              <button class="btn btn-outline-success btn-sm fw-bold" onclick="downloadStockCSV()"><i class="bi bi-file-earmark-arrow-down me-1"></i> ดาวน์โหลด CSV</button>
+            </div>
             <div class="row g-2 mb-3 align-items-center bg-light p-2 rounded border mx-0">
               <div class="col-12 col-md-4"><label class="small fw-bold text-muted mb-1"><i class="bi bi-layers-fill text-warning me-1"></i>เลือกแถว/ชั้นวาง (Row):</label><select id="stockRowSelectFilter" placeholder="🔍 เลือก Row..."></select></div>
               <div class="col-12 col-md-4"><label class="small fw-bold text-muted mb-1"><i class="bi bi-tag-fill text-primary me-1"></i>เลือกแบรนด์ (Brand):</label><select id="filterBrand" placeholder="🔍 พิมพ์ค้นหาแบรนด์..."></select></div>
@@ -462,7 +465,10 @@
           <div class="card p-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
               <h6 class="fw-bold mb-0"><i class="bi bi-clipboard2-data text-danger me-2"></i>ตารางเปรียบเทียบยอดนับ vs ระบบ (รวมทุก Row)</h6>
-              <input type="text" id="searchRecon" class="form-control form-control-sm w-auto" placeholder="🔍 ค้นหาสินค้า..." oninput="filterReconcileDebounced()">
+              <div class="d-flex gap-2 align-items-center">
+                <input type="text" id="searchRecon" class="form-control form-control-sm w-auto" placeholder="🔍 ค้นหาสินค้า..." oninput="filterReconcileDebounced()">
+                <button class="btn btn-outline-success btn-sm fw-bold text-nowrap" onclick="downloadReconCSV()"><i class="bi bi-file-earmark-arrow-down me-1"></i> ดาวน์โหลด CSV</button>
+              </div>
             </div>
             <div class="small text-muted mb-2">เปรียบเทียบแยกตามหน่วย (ลัง / แพ็ค / ชิ้น) ไม่มีการแปลงหน่วยระหว่างกัน</div>
 
@@ -1476,20 +1482,37 @@
       });
       tbody.innerHTML = html;
     }
+    function stockFiltered() {
+      const q = ($id('searchStock').value || '').toLowerCase();
+      const brand = tsFilterBrand ? tsFilterBrand.getValue() : '';
+      let list = globalData.products.filter(p => p.status === 'Active');
+      if (selectedStockRow !== 'ALL') list = list.filter(p => normalizeRowName(p.locationRow) === normalizeRowName(selectedStockRow));
+      list = list.filter(p => [p.barcode, p.brand, p.name, p.locationRow].some(v => String(v).toLowerCase().includes(q)) && (brand === '' || p.brand === brand));
+      return applySort(list, 'stock');
+    }
     function filterStock() {
-      try {
-        const q = ($id('searchStock').value || '').toLowerCase();
-        const brand = tsFilterBrand ? tsFilterBrand.getValue() : '';
-        let list = globalData.products.filter(p => p.status === 'Active');
-        if (selectedStockRow !== 'ALL') list = list.filter(p => normalizeRowName(p.locationRow) === normalizeRowName(selectedStockRow));
-        list = list.filter(p => [p.barcode, p.brand, p.name, p.locationRow].some(v => String(v).toLowerCase().includes(q)) && (brand === '' || p.brand === brand));
-        renderStockTable(applySort(list, 'stock'));
-      } catch (e) { console.error(e); }
+      try { renderStockTable(stockFiltered()); } catch (e) { console.error(e); }
+    }
+    function downloadStockCSV() {
+      const list = stockFiltered();
+      if (!list.length) { showToast('ไม่พบข้อมูลสำหรับดาวน์โหลด', 'error'); return; }
+      const rows = [['Row', 'Barcode', 'Brand', 'Name', 'MFD', EXP_LABEL, 'Shelf life', 'Shelf life (Day)', '%Day', 'ลัง', 'แพ็ค', 'ชิ้น', 'คงเหลือ (ตามหน่วยจริง)', 'เกณฑ์', 'สถานะ']];
+      list.forEach(p => {
+        const q = qOf(p.qty);
+        const unit = p.singleUnit ? unitLabel(p.singleUnit) : 'ลัง';
+        rows.push([
+          p.locationRow, p.barcode, p.brand, p.name, p.mfdDate, p.expDate,
+          p.shelfLife, p.remainDays, isEmptyVal(p.percentDay) ? '-' : p.percentDay + '%',
+          q.c, q.p, q.u, formatQty(q),
+          p.minStock + ' ' + unit,
+          p.isOut ? 'หมดสต็อก' : (p.isLow ? 'ใกล้หมด' : 'ปกติ')
+        ]);
+      });
+      downloadCSV('StockBalance_' + selectedStockRow + '_' + new Date().toISOString().split('T')[0] + '.csv', rows);
     }
     const filterStockDebounced = debounce(filterStock);
 
-    function filterReconcile() {
-      try {
+    function buildReconList() {
         const q = ($id('searchRecon').value || '').toLowerCase();
         const stockMap = {};
         const ensure = (o, m, e) => { const k = o.barcode + '|' + m + '|' + e; if (!stockMap[k]) stockMap[k] = { barcode: o.barcode, name: o.name, brand: o.brand, mfd: m, exp: e, systemQty: zeroQ(), auditQty: zeroQ() }; return stockMap[k]; };
@@ -1502,8 +1525,11 @@
           addQty(ensure(a, a.mfdDate || '-', a.expDate || '-').auditQty, latest, 1);
         });
         let list = Object.values(stockMap).map(i => { i.diff = addQty(addQty(zeroQ(), i.auditQty, 1), i.systemQty, -1); return i; });
-        list = list.filter(p => [p.barcode, p.name, p.mfd, p.exp, p.brand].some(v => String(v).toLowerCase().includes(q)));
-
+        return list.filter(p => [p.barcode, p.name, p.mfd, p.exp, p.brand].some(v => String(v).toLowerCase().includes(q)));
+    }
+    function filterReconcile() {
+      try {
+        const list = buildReconList();
         const sumSys = zeroQ(), sumAud = zeroQ();
         let diffCount = 0;
         list.forEach(i => { addQty(sumSys, i.systemQty, 1); addQty(sumAud, i.auditQty, 1); if (!isZeroQty(i.diff)) diffCount++; });
@@ -1529,6 +1555,13 @@
       }
     }
     const filterReconcileDebounced = debounce(filterReconcile);
+    function downloadReconCSV() {
+      const list = applySort(buildReconList(), 'recon');
+      if (!list.length) { showToast('ไม่พบข้อมูลสำหรับดาวน์โหลด', 'error'); return; }
+      const rows = [['Barcode', 'Brand', 'Name', 'MFD', EXP_LABEL, 'สต็อกระบบ', 'ยอดที่นับได้', 'Diff']];
+      list.forEach(i => rows.push([i.barcode, i.brand, i.name, i.mfd, i.exp, formatQty(i.systemQty), formatQty(i.auditQty), formatDiff(i.diff)]));
+      downloadCSV('Reconcile_' + new Date().toISOString().split('T')[0] + '.csv', rows);
+    }
 
     function renderHistoryTable(list) {
       const info = globalData.historyTruncated ? 'แสดงเฉพาะ ' + globalData.history.length.toLocaleString() + ' รายการล่าสุด' : '';

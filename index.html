@@ -459,7 +459,7 @@
             <div class="col-6 col-md-3"><div class="card bg-gradient-primary p-3 position-relative overflow-hidden h-100"><span class="small text-white-50 fw-bold">ยอดสต็อกในระบบ</span><h5 class="fw-bold mt-1 mb-0" id="recon-sys">0</h5><i class="bi bi-box-seam kpi-icon"></i></div></div>
             <div class="col-6 col-md-3"><div class="card bg-gradient-warning p-3 position-relative overflow-hidden h-100"><span class="small text-dark-50 fw-bold text-dark">ยอดที่นับได้ล่าสุด</span><h5 class="fw-bold mt-1 mb-0 text-dark" id="recon-audit">0</h5><i class="bi bi-clipboard-check kpi-icon text-dark"></i></div></div>
             <div class="col-6 col-md-3"><div class="card bg-white border p-3 position-relative overflow-hidden h-100"><span class="small text-muted fw-bold">ผลต่าง (Diff)</span><h5 class="fw-bold mt-1 mb-0" id="recon-diff">0</h5><i class="bi bi-calculator kpi-icon text-muted"></i></div></div>
-            <div class="col-6 col-md-3"><div class="card bg-white border p-3 position-relative overflow-hidden h-100"><span class="small text-muted fw-bold">รายการที่มีผลต่าง (จำนวน / %)</span><h5 class="fw-bold mt-1 mb-0" id="recon-diff-pct">0</h5><i class="bi bi-percent kpi-icon text-muted"></i></div></div>
+            <div class="col-6 col-md-3"><div class="card bg-white border p-3 position-relative overflow-hidden h-100"><span class="small text-muted fw-bold">% ความผิดพลาด (Diff ÷ สต็อกระบบ)</span><h5 class="fw-bold mt-1 mb-0" id="recon-diff-pct">0</h5><i class="bi bi-percent kpi-icon text-muted"></i></div></div>
           </div>
 
           <div class="card p-3">
@@ -1606,9 +1606,14 @@
         const dEl = $id('recon-diff'); dEl.innerText = formatDiff(totalDiff); dEl.className = 'fw-bold mt-1 mb-0 ' + diffClass(totalDiff);
 
         const pEl = $id('recon-diff-pct');
-        const pct = list.length ? (diffCount / list.length * 100) : 0;
-        pEl.innerText = diffCount.toLocaleString() + ' / ' + list.length.toLocaleString() + ' (' + pct.toFixed(1) + '%)';
-        pEl.className = 'fw-bold mt-1 mb-0 ' + (diffCount ? 'text-danger' : 'text-muted');
+        const pctParts = [];
+        [['c', 'ลัง'], ['p', 'แพ็ค'], ['u', 'ชิ้น']].forEach(([k, label]) => {
+          const s = r2(sumSys[k]), d = r2(totalDiff[k]);
+          if (s === 0 && d === 0) return;                       // หน่วยนี้ไม่มีข้อมูล ข้าม
+          pctParts.push(s === 0 ? 'n/a ' + label : (d / s * 100).toFixed(1) + '% ' + label);
+        });
+        pEl.innerText = pctParts.length ? pctParts.join(' | ') : '0%';
+        pEl.className = 'fw-bold mt-1 mb-0 ' + (isZeroQty(totalDiff) ? 'text-muted' : 'text-danger');
 
         const sorted = applySort(list, 'recon');
         if (!sorted.length) { $set('reconTableBody', '<tr><td colspan="7" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>'); return; }

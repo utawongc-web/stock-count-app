@@ -9,7 +9,6 @@
   <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/th.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <style>
@@ -210,10 +209,10 @@
 
                 <div class="mb-3 p-3 bg-light rounded border">
                   <div class="d-flex justify-content-between align-items-center mb-1"><label class="form-label small fw-bold text-secondary mb-0">วันผลิต (MFD Date)</label><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 11px;" onclick="fpickrAuditMfd.clear()">ล้าง</button></div>
-                  <input type="text" id="aMFDDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป">
+                  <input type="text" id="aMFDDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป (ค.ศ.)">
 
                   <div class="d-flex justify-content-between align-items-center mt-3 mb-1"><label class="form-label small fw-bold text-danger mb-0">วันหมดอายุ (EXP) / หมายเลขล็อต (Lot No.)</label><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 11px;" onclick="fpickrAuditExp.clear()">ล้าง</button></div>
-                  <input type="text" id="aExpDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป">
+                  <input type="text" id="aExpDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป (ค.ศ.)">
                   <div id="aExpChipsWrapper" class="mt-2" style="display: none;"><span class="small text-muted d-block mb-1">เลือกล็อตในระบบ:</span><div id="aExpChipsContainer" class="d-flex flex-wrap gap-1"></div></div>
                 </div>
 
@@ -350,10 +349,10 @@
 
               <div class="mb-3 p-3 bg-light rounded border">
                 <div class="d-flex justify-content-between align-items-center mb-1"><label class="form-label small fw-bold text-secondary mb-0">วันผลิต (MFD Date)</label><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 11px;" onclick="fpickrMoveMfd.clear()">ล้าง</button></div>
-                <input type="text" id="mMFDDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป">
+                <input type="text" id="mMFDDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป (ค.ศ.)">
 
                 <div class="d-flex justify-content-between align-items-center mt-3 mb-1"><label class="form-label small fw-bold text-danger mb-0">วันหมดอายุ (EXP) / หมายเลขล็อต (Lot No.)</label><button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 11px;" onclick="fpickrMoveExp.clear()">ล้าง</button></div>
-                <input type="text" id="mExpDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป">
+                <input type="text" id="mExpDate" class="form-control mt-1 bg-white" placeholder="วว/ดด/ปปปป (ค.ศ.)">
                 <div id="expChipsWrapper" class="mt-2" style="display: none;"><span class="small text-muted d-block mb-1">เลือกล็อตที่มีในสต็อก:</span><div id="expChipsContainer" class="d-flex flex-wrap gap-1"></div></div>
               </div>
 
@@ -607,6 +606,8 @@
     // State
     // =====================================================================
     const EXP_LABEL = 'EXP Date / Lot No.';
+    // ปฏิทิน: ไม่ใช้ locale ไทย เพื่อให้ปีแสดงเป็น ค.ศ. เสมอ
+    const FP_OPT = { dateFormat: 'd/m/Y', allowInput: true };
     function emptyData() { return { products: [], uniqueProducts: [], history: [], auditReportData: [], masterRows: [], summary: {}, historyTruncated: false }; }
     let globalData = emptyData();
     let prodIndex = {};
@@ -640,8 +641,12 @@
     // ---------------------------------------------------------------------
     // เรียก API ของ Apps Script (แทน google.script.run)
     // ใช้ POST + text/plain เพื่อไม่ให้เบราว์เซอร์ส่ง preflight (Apps Script ไม่รองรับ OPTIONS)
+    // มี retry อัตโนมัติเมื่อเซิร์ฟเวอร์ยุ่ง/เน็ตสะดุด (การเขียนมี reqId กันบันทึกซ้ำฝั่งเซิร์ฟเวอร์)
     // ---------------------------------------------------------------------
-    async function api(fn, args) {
+    function newReqId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    async function apiOnce(fn, args) {
       let res;
       try {
         res = await fetch(API_URL, {
@@ -660,6 +665,22 @@
       return typeof j.data === 'string' ? JSON.parse(j.data) : j.data;
     }
 
+    async function api(fn, args, tries) {
+      const max = tries || 3;
+      let lastErr;
+      for (let i = 0; i < max; i++) {
+        try { return await apiOnce(fn, args); }
+        catch (e) {
+          lastErr = e;
+          const m = String(e && e.message ? e.message : e);
+          const retriable = /SERVER_BUSY|เชื่อมต่อเซิร์ฟเวอร์ไม่ได้|ตอบกลับผิดรูปแบบ|lock|too many times|timed out/i.test(m);
+          if (!retriable || i === max - 1) break;
+          await sleep(800 * Math.pow(2, i) + Math.random() * 600);   // รอแล้วลองใหม่ พร้อมสุ่มเวลาไม่ให้ชนพร้อมกัน
+        }
+      }
+      throw lastErr;
+    }
+
     function gs(fn, ...args) {
       return api(fn, [authToken, ...args]).catch(err => {
         const msg = String(err && err.message ? err.message : err);
@@ -667,7 +688,7 @@
           forceLogout('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
           const e = new Error(msg); e.expired = true; throw e;
         }
-        throw new Error(msg.replace(/^(Error|Exception):\s*/, ''));
+        throw new Error(msg.replace(/^(Error|Exception):\s*/, '').replace(/^SERVER_BUSY:\s*/, ''));
       });
     }
     function errToast(err) { if (err && err.expired) return; showToast((err && err.message) || String(err), 'error'); }
@@ -688,7 +709,7 @@
     function hideGlobalLoader() { $id('global-loader').style.display = 'none'; }
     function setRefreshLoading(isLoading) { const btn = $id('btnRefresh'), icon = $id('refreshIcon'); btn.disabled = isLoading; icon.classList.toggle('spin', isLoading); }
 
-    // ---- วันที่ ----
+    // ---- วันที่ (บันทึกเป็น ค.ศ. เสมอ ถ้าพิมพ์ปี พ.ศ. มาจะแปลงให้) ----
     function normalizeDate(s) {
       s = String(s || '').trim();
       if (!s || s === '-') return '-';
@@ -852,7 +873,7 @@
     }
     const QUAGGA_READERS = ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader', 'code_39_reader', 'i2of5_reader'];
     let quaggaRunning = false, lastCode = '', lastCount = 0;
-    
+
     function startScanner() {
       lastCode = ''; lastCount = 0;
       Quagga.init({
@@ -882,7 +903,7 @@
         $id('scanMsg').innerText = 'เล็งบาร์โค้ดให้พาดเส้นแดง';
       });
     }
-    
+
     // กันอ่านผิด: ค่า error เฉลี่ยต้องต่ำ และต้องอ่านได้ค่าเดิม 2 ครั้งติด
     function onQuaggaDetected(res) {
       if (scanBusy) return;
@@ -894,7 +915,7 @@
       if (cc.code === lastCode) lastCount++; else { lastCode = cc.code; lastCount = 1; }
       if (lastCount >= 2) onScanSuccess(cc.code);
     }
-    
+
     function onScanSuccess(text) {
       if (scanBusy) return;
       scanBusy = true;
@@ -908,14 +929,14 @@
         else if (target === 'mBarcodeStr') triggerBarcodeMove();
       });
     }
-    
+
     async function stopQuagga() {
       if (!quaggaRunning) return;
       try { Quagga.offDetected(onQuaggaDetected); await Quagga.stop(); } catch (e) { console.warn(e); }
       quaggaRunning = false;
       $id('scanReader').innerHTML = '';
     }
-    
+
     // ทางสำรอง: ถ่ายรูปแล้วถอดรหัสจากรูป (ลองหลายขนาดเพื่อเพิ่มโอกาสอ่านได้)
     function quaggaDecode(src, size) {
       return new Promise(resolve => {
@@ -926,7 +947,7 @@
         }, r => resolve(r && r.codeResult ? r.codeResult.code : null));
       });
     }
-    
+
     async function scanFromPhoto(input) {
       const file = input.files && input.files[0];
       input.value = '';
@@ -949,7 +970,7 @@
         msg.innerText = 'อ่านบาร์โค้ดจากรูปไม่ได้ ลองถ่ายใหม่ให้เห็นบาร์โค้ดชัด ตรง และมีแสงพอ';
       }
     }
-    
+
     async function closeScanner() {
       await stopQuagga();
       scanner = null;
@@ -981,7 +1002,7 @@
           $id('loginForm').reset();
           showLoggedInUI();
           showToast('ยินดีต้อนรับคุณ ' + loggedInUser.name, 'success');
-          return loadAllData(true);      // ← เพิ่ม return
+          return loadAllData(true);
         } else {
           showToast(response.message, 'error');
         }
@@ -1054,10 +1075,10 @@
       auditConfirmModal = new bootstrap.Modal($id('auditStartConfirmModal'));
       editRowModalInstance = new bootstrap.Modal($id('editRowModal'));
 
-      fpickrAuditMfd = flatpickr('#aMFDDate', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true, onChange: updateAuditRoundBadge });
-      fpickrAuditExp = flatpickr('#aExpDate', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true, onChange: updateAuditRoundBadge });
-      fpickrMoveMfd = flatpickr('#mMFDDate', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true });
-      fpickrMoveExp = flatpickr('#mExpDate', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true });
+      fpickrAuditMfd = flatpickr('#aMFDDate', Object.assign({ onChange: updateAuditRoundBadge }, FP_OPT));
+      fpickrAuditExp = flatpickr('#aExpDate', Object.assign({ onChange: updateAuditRoundBadge }, FP_OPT));
+      fpickrMoveMfd = flatpickr('#mMFDDate', FP_OPT);
+      fpickrMoveExp = flatpickr('#mExpDate', FP_OPT);
 
       initAllSearchableDropdowns();
 
@@ -1104,7 +1125,7 @@
         if (!err.expired) showToast('ไม่สามารถโหลดข้อมูลได้: ' + err.message, 'error');
       }).finally(() => { hideGlobalLoader(); setRefreshLoading(false); });
     }
-        let silentRefreshing = false, silentQueued = false;
+    let silentRefreshing = false, silentQueued = false;
     function loadAllDataSilent() {
       if (silentRefreshing) { silentQueued = true; return Promise.resolve(); }
       silentRefreshing = true;
@@ -1276,7 +1297,7 @@
       calculateAuditUnits();
     }
 
-    // [แก้ไข] ผู้ที่ไม่ใช่ WH นับได้เสมอ: ถ้าไม่มียอดของล็อตนี้ / ยังไม่มีนับครั้งที่ 2 => นับครั้งที่ 2
+    // ผู้ที่ไม่ใช่ WH นับได้เสมอ: ถ้าไม่มียอดของล็อตนี้ / ยังไม่มีนับครั้งที่ 2 => นับครั้งที่ 2
     function updateAuditRoundBadge() {
       const badge = $id('sessionDynamicRoundBadge');
       const barcode = $id('aBarcodeStr').value.trim();
@@ -1343,8 +1364,9 @@
       catch (err) { showToast(err.message, 'error'); return; }
       if (vals.reduce((s, v) => s + v, 0) <= 0) { showToast('กรุณาระบุจำนวนอย่างน้อย 1 หน่วย', 'error'); return; }
 
-      const payload = { locationRow: currentAuditSession.row, barcode: barcode, mfdDate: mfd, expDate: exp, cartons: vals[0], packs: vals[1], pieces: vals[2], note: $id('aNote').value.trim() };
-            setAuditSaving(true);
+      // reqId: ถ้ามีการ retry / กดซ้ำ เซิร์ฟเวอร์จะไม่บันทึกซ้ำ
+      const payload = { reqId: newReqId(), locationRow: currentAuditSession.row, barcode: barcode, mfdDate: mfd, expDate: exp, cartons: vals[0], packs: vals[1], pieces: vals[2], note: $id('aNote').value.trim() };
+      setAuditSaving(true);
       gs('recordAudit', payload).then(res => {
         showToast(res.message, 'success');
         resetAuditProductFields();
@@ -1421,6 +1443,7 @@
       if (type === 'ADJUST' && total > 0 && !confirm('ADJUST จะตั้งยอดของล็อตนี้ให้เท่ากับที่กรอกทุกหน่วย (หน่วยที่ไม่ได้กรอกจะถูกตั้งเป็น 0)\nต้องการดำเนินการต่อหรือไม่?')) return;
 
       const payload = {
+        reqId: newReqId(),
         type: type, barcode: barcode, locationRow: normalizeRowName(tsMoveRow.getValue()) || '-', destination: destination,
         mfdDate: mfd, expDate: exp, cartons: vals[0], packs: vals[1], pieces: vals[2], note: $id('mNote').value.trim()
       };
@@ -1428,14 +1451,14 @@
       gs('recordMovement', payload).then(res => {
         showToast(res.message, 'success');
         resetMoveForm();
-        return loadAllData();
+        loadAllDataSilent();        // ไม่ return เพื่อให้ loader ปิดทันที ข้อมูลจะอัปเดตตามมาเอง
       }).catch(errToast).finally(hideGlobalLoader);
     }
 
     // =====================================================================
     // Tables
     // =====================================================================
-        // Diff = นับครั้งล่าสุด (รอบ 3 > รอบ 2) - ยอด WH ; คืน null ถ้าเทียบไม่ได้
+    // Diff = นับครั้งล่าสุด (รอบ 3 > รอบ 2) - ยอด WH ; คืน null ถ้าเทียบไม่ได้
     function auditDiff(r) {
       if (isEmptyVal(r.startGood)) return null;
       const latest = !isEmptyVal(r.count3Good) ? r.count3Good : (!isEmptyVal(r.count2Good) ? r.count2Good : null);
@@ -1778,7 +1801,7 @@
         return '<div class="col-12 col-md-6"><label class="small fw-bold text-muted mb-1">' + esc(h) + ':</label>' + input + '</div>';
       }).join('') + '</div>';
       editRowModalInstance.show();
-      flatpickr('.edit-date-picker', { dateFormat: 'd/m/Y', locale: 'th', allowInput: true });
+      flatpickr('.edit-date-picker', FP_OPT);
     }
     function saveRecordEdit() {
       if (currentEditingRowIndex <= 0 || !currentEditingSheet) return;

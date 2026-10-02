@@ -282,6 +282,7 @@
                   <th style="background-color:#cffafe; color:#0891b2;">ผู้ตรวจนับ 2</th>
                   <th class="sortable" style="background-color:#f1f5f9; color:#475569;" onclick="sortData('audit', 'count3Good')">นับครั้งที่ 3 <i class="bi bi-arrow-down-up sort-icon"></i></th>
                   <th style="background-color:#f1f5f9; color:#475569;">ผู้ตรวจนับ 3</th>
+                  <th class="sortable" style="background-color:#fee2e2; color:#b91c1c;" onclick="sortData('audit', 'diffWh')">Diff (WH vs นับล่าสุด) <i class="bi bi-arrow-down-up sort-icon"></i></th>
                   <th style="min-width: 150px;">หมายเหตุ</th>
                   <th style="min-width: 150px;">แก้ไขรอบนับ</th>
                 </tr></thead>
@@ -826,8 +827,11 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
     function auditCsvRows(list) {
-      const rows = [['Row', 'Barcode', 'Brand', 'Name', 'MFD', EXP_LABEL, 'WH Count', 'WH User', 'Count 2', 'User 2', 'Count 3', 'User 3', 'Note']];
-      list.forEach(r => rows.push([r.row, r.barcode, r.brand, r.name, r.mfdDate, r.expDate, formatQty(r.startGood), r.startUser, formatQty(r.count2Good), r.count2User, formatQty(r.count3Good), r.count3User, r.noteSummary]));
+      const rows = [['Row', 'Barcode', 'Brand', 'Name', 'MFD', EXP_LABEL, 'WH Count', 'WH User', 'Count 2', 'User 2', 'Count 3', 'User 3', 'Diff (WH vs Latest)', 'Note']];
+      list.forEach(r => {
+        const d = r.diffWh !== undefined ? r.diffWh : auditDiff(r);
+        rows.push([r.row, r.barcode, r.brand, r.name, r.mfdDate, r.expDate, formatQty(r.startGood), r.startUser, formatQty(r.count2Good), r.count2User, formatQty(r.count3Good), r.count3User, d ? formatDiff(d) : '-', r.noteSummary]);
+      });
       return rows;
     }
 
@@ -1410,13 +1414,27 @@
     // =====================================================================
     // Tables
     // =====================================================================
+        // Diff = นับครั้งล่าสุด (รอบ 3 > รอบ 2) - ยอด WH ; คืน null ถ้าเทียบไม่ได้
+    function auditDiff(r) {
+      if (isEmptyVal(r.startGood)) return null;
+      const latest = !isEmptyVal(r.count3Good) ? r.count3Good : (!isEmptyVal(r.count2Good) ? r.count2Good : null);
+      if (!latest) return null;
+      return addQty(addQty(zeroQ(), latest, 1), r.startGood, -1);
+    }
+
     function renderAuditReportTable(list) {
-      if (!globalData.auditReportData.length) { $set('auditReportTableBody', '<tr><td colspan="12" class="text-center py-4 text-muted">ยังไม่มีประวัติ</td></tr>'); return; }
-      if (!list.length) { $set('auditReportTableBody', '<tr><td colspan="12" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>'); return; }
+      if (!globalData.auditReportData.length) { $set('auditReportTableBody', '<tr><td colspan="13" class="text-center py-4 text-muted">ยังไม่มีประวัติ</td></tr>'); return; }
+      if (!list.length) { $set('auditReportTableBody', '<tr><td colspan="13" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>'); return; }
       const canEdit = u => isWH() || (u && u === loggedInUser.name);
-      const btn = (idx, user, cls, label) => (idx && canEdit(user)) ? '<button class="btn ' + cls + ' btn-sm py-0 px-1 me-1 mb-1" data-act="edit-rec" data-sheet="Audits" data-row="' + idx + '"><i class="bi bi-pencil"></i> ' + label + '</button>' : '';
+      const btn = (rows, user, cls, label) => (rows || []).map((idx, n) => canEdit(user)
+        ? '<button class="btn ' + cls + ' btn-sm py-0 px-1 me-1 mb-1" data-act="edit-rec" data-sheet="Audits" data-row="' + idx + '"><i class="bi bi-pencil"></i> ' + label + (rows.length > 1 ? ' #' + (n + 1) : '') + '</button>' : '').join('');
       $set('auditReportTableBody', list.map(r => {
         const u = v => (v !== '-' ? esc(v) : '-');
+        const d = r.diffWh;
+        let diffHtml;
+        if (!d) diffHtml = '<span class="text-muted">-</span>';
+        else if (isZeroQty(d)) diffHtml = '<span class="text-muted fw-bold">0</span>';
+        else diffHtml = '<span class="fw-bold ' + diffClass(d) + '">' + esc(formatDiff(d)) + '</span>';
         return '<tr>' +
           '<td class="fw-bold align-middle"><span class="badge badge-row">' + esc(r.row) + '</span></td>' +
           '<td class="align-middle"><div class="fw-bold text-dark">' + esc(r.name) + '</div><small class="text-muted font-monospace">' + esc(r.barcode) + ' • ' + esc(r.brand) + '</small></td>' +
@@ -1428,17 +1446,19 @@
           '<td class="text-center align-middle"><small>' + u(r.count2User) + '</small></td>' +
           '<td class="text-end fw-bold align-middle ' + (r.count3Good !== '-' ? 'text-secondary' : 'text-muted') + '" style="white-space: nowrap; font-size: 12px;">' + esc(formatQty(r.count3Good)) + '</td>' +
           '<td class="text-center align-middle"><small>' + u(r.count3User) + '</small></td>' +
+          '<td class="text-center align-middle" style="white-space: nowrap; font-size: 12px;">' + diffHtml + '</td>' +
           '<td class="align-middle"><small class="text-secondary">' + esc(r.noteSummary && r.noteSummary !== '-' ? r.noteSummary : '-') + '</small></td>' +
-          '<td class="text-center text-nowrap align-middle">' + btn(r.startSheetRowIndex, r.startUser, 'btn-outline-secondary', 'รอบ1') + btn(r.count2SheetRowIndex, r.count2User, 'btn-outline-info', 'รอบ2') + btn(r.count3SheetRowIndex, r.count3User, 'btn-outline-dark', 'รอบ3') + '</td>' +
+          '<td class="text-center text-nowrap align-middle">' + btn(r.startRows, r.startUser, 'btn-outline-secondary', 'รอบ1') + btn(r.count2Rows, r.count2User, 'btn-outline-info', 'รอบ2') + btn(r.count3Rows, r.count3User, 'btn-outline-dark', 'รอบ3') + '</td>' +
           '</tr>';
       }).join(''));
     }
     function auditFiltered() {
       const q = ($id('searchAuditReport').value || '').toLowerCase();
-      let list = globalData.auditReportData;
+      let list = globalData.auditReportData.map(r => Object.assign({}, r, { diffWh: auditDiff(r) }));
       if (selectedAuditRow !== 'ALL') list = list.filter(r => normalizeRowName(r.row) === normalizeRowName(selectedAuditRow));
       return applySort(list.filter(r => [r.row, r.barcode, r.name, r.brand, r.expDate, r.mfdDate, r.noteSummary].some(v => String(v).toLowerCase().includes(q))), 'audit');
     }
+
     function filterAuditReport() { try { renderAuditReportTable(auditFiltered()); } catch (e) { console.error(e); } }
     const filterAuditReportDebounced = debounce(filterAuditReport);
 

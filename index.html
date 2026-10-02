@@ -1104,6 +1104,21 @@
         if (!err.expired) showToast('ไม่สามารถโหลดข้อมูลได้: ' + err.message, 'error');
       }).finally(() => { hideGlobalLoader(); setRefreshLoading(false); });
     }
+        let silentRefreshing = false, silentQueued = false;
+    function loadAllDataSilent() {
+      if (silentRefreshing) { silentQueued = true; return Promise.resolve(); }
+      silentRefreshing = true;
+      return gs('getInventoryData')
+        .then(data => renderData(data))
+        .catch(err => { if (!err.expired) console.warn('silent refresh failed', err); })
+        .finally(() => {
+          silentRefreshing = false;
+          if (silentQueued) { silentQueued = false; loadAllDataSilent(); }
+        });
+    }
+    function setAuditSaving(b) {
+      ['btnSaveAuditContinue', 'btnSaveAuditFinish'].forEach(id => { const el = $id(id); if (el) el.disabled = b; });
+    }
 
     function renderData(data) {
       globalData = data;
@@ -1271,7 +1286,12 @@
       const mfd = readDateSoft('aMFDDate'), exp = readDateSoft('aExpDate');
       const g = globalData.auditReportData.find(r => normalizeRowName(r.row) === currentAuditSession.row && r.barcode === barcode && r.mfdDate === mfd && r.expDate === exp);
       let nextRound = '2';
-      if (g) nextRound = g.count2Good === '-' ? '2' : (g.count3Good === '-' ? '3' : '4+');
+      const me = currentAuditSession.user.trim().toLowerCase();
+      if (g) {
+        if (String(g.count2User).trim().toLowerCase() === me) nextRound = '2';
+        else if (String(g.count3User).trim().toLowerCase() === me) nextRound = '3';
+        else nextRound = g.count2Good === '-' ? '2' : (g.count3Good === '-' ? '3' : '4+');
+      }
       badge.innerText = 'นับครั้งที่ ' + nextRound + ((!g || g.startGood === '-') ? ' (ยังไม่มียอด WH)' : '');
       badge.className = 'badge bg-primary ms-1';
     }
@@ -1324,13 +1344,14 @@
       if (vals.reduce((s, v) => s + v, 0) <= 0) { showToast('กรุณาระบุจำนวนอย่างน้อย 1 หน่วย', 'error'); return; }
 
       const payload = { locationRow: currentAuditSession.row, barcode: barcode, mfdDate: mfd, expDate: exp, cartons: vals[0], packs: vals[1], pieces: vals[2], note: $id('aNote').value.trim() };
-      showGlobalLoader('กำลังบันทึกข้อมูล...');
+            setAuditSaving(true);
       gs('recordAudit', payload).then(res => {
         showToast(res.message, 'success');
         resetAuditProductFields();
         if (actionType === 'FINISH') { currentAuditSession.active = false; endAuditSessionQuiet(); }
-        return loadAllData();
-      }).catch(errToast).finally(hideGlobalLoader);
+        else { const bc = $id('aBarcodeStr'); if (bc) bc.focus(); }
+        loadAllDataSilent();
+      }).catch(errToast).finally(() => setAuditSaving(false));
     }
     function endAuditSessionQuiet() { $id('auditCountingBox').style.display = 'none'; $id('auditSetupBox').style.display = 'block'; }
 

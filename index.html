@@ -116,7 +116,7 @@
           <small class="text-muted" style="font-size: 12px;">ใช้งานโดย: <b id="displayLoginName" class="text-primary">-</b> (<span id="displayLoginRole">-</span>)</small>
         </div>
         <div>
-          <button id="btnRefresh" class="btn btn-light border btn-sm shadow-sm me-1" onclick="loadAllData()">
+          <button id="btnRefresh" class="btn btn-light border btn-sm shadow-sm me-1" onclick="manualRefresh()">
             <i class="bi bi-arrow-clockwise" id="refreshIcon"></i> <span class="d-none d-sm-inline">รีเฟรช</span>
           </button>
           <button class="btn btn-danger btn-sm shadow-sm" onclick="logout()" title="ออกจากระบบ">
@@ -1114,7 +1114,11 @@
         histLimit += 300; filterHistory();
       }
     });
-
+    function manualRefresh() {
+      if (!isWH()) return loadAllData();
+      showGlobalLoader('กำลังอัปเดตชีท StockSummary...');
+      return gs('refreshSummaryNow').catch(errToast).then(() => loadAllData());
+    }
     function loadAllData(isFirstLoad) {
       setRefreshLoading(true);
       showGlobalLoader(isFirstLoad === true ? 'กำลังซิงค์และเตรียมข้อมูลคลังสินค้า...' : 'กำลังอัปเดตข้อมูลล่าสุด...');

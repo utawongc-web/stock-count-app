@@ -607,7 +607,7 @@
     // =====================================================================
     const EXP_LABEL = 'EXP Date / Lot No.';
     // ปฏิทิน: ไม่ใช้ locale ไทย เพื่อให้ปีแสดงเป็น ค.ศ. เสมอ
-    const FP_OPT = { dateFormat: 'd/m/Y', allowInput: true };
+    const FP_OPT = { dateFormat: 'd/m/Y', allowInput: true, disableMobile: true };
     function emptyData() { return { products: [], uniqueProducts: [], history: [], auditReportData: [], masterRows: [], summary: {}, historyTruncated: false }; }
     let globalData = emptyData();
     let prodIndex = {};

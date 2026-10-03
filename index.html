@@ -268,6 +268,19 @@
               <i class="bi bi-info-circle-fill me-1"></i> <b>หมายเหตุ:</b> สามารถคลิกที่หัวตารางที่มีลูกศรขึ้นลงเพื่อเรียงลำดับข้อมูลได้ • ยอดแสดงตามหน่วยที่กรอกจริง ไม่มีการแปลงหน่วย • หากยังไม่มียอดนับครั้งที่ 1 จาก WH ผู้ตรวจอื่นสามารถนับได้เลย โดยจะนับเป็นครั้งที่ 2
             </div>
 
+            <!-- ประวัติเริ่ม-จบการนับแต่ละ Row -->
+            <div class="mb-3">
+              <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#sessionLogBox"><i class="bi bi-flag me-1"></i>ประวัติเริ่ม-จบการนับแต่ละ Row</button>
+              <div class="collapse mt-2" id="sessionLogBox">
+                <div class="table-responsive-freeze" style="max-height: 30vh;">
+                  <table class="table table-bordered table-sm align-middle mb-0 table-fixed" style="font-size: 13px;">
+                    <thead class="text-center"><tr><th>เวลา</th><th>Row</th><th>รอบ</th><th>เหตุการณ์</th><th>ผู้ตรวจ</th><th>รายการ</th><th>นาที</th></tr></thead>
+                    <tbody id="sessionLogBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
             <div class="table-responsive-freeze">
               <table class="table table-bordered table-hover align-middle mb-0 table-fixed" style="font-size: 13px;">
                 <thead class="text-center"><tr>
@@ -571,6 +584,28 @@
     </div></div></div>
   </div>
 
+  <!-- ===== ถามก่อนปิดรอบการนับ ===== -->
+  <div class="modal fade" id="auditCloseModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow-lg border-0" style="border-radius: 20px;">
+        <div class="modal-header bg-warning bg-opacity-10 border-warning border-opacity-25" style="border-top-left-radius: 20px; border-top-right-radius: 20px;">
+          <h6 class="modal-title fw-bold text-dark"><i class="bi bi-question-circle-fill text-warning me-2 fs-5"></i>นับ Row นี้เสร็จแล้วหรือยัง?</h6>
+        </div>
+        <div class="modal-body p-4">
+          <div class="p-3 bg-light rounded-4 border small">
+            แถว / ชั้นวาง: <b id="closeRowText" class="font-monospace">-</b><br>
+            บันทึกไปแล้วในรอบนี้: <b id="closeCountText">0</b> รายการ
+          </div>
+        </div>
+        <div class="modal-footer flex-column gap-2 border-top-0 pt-0 p-4">
+          <button type="button" class="btn btn-success w-100 fw-bold py-2 rounded-3" onclick="chooseCloseAudit('DONE')"><i class="bi bi-check2-circle me-1"></i> เสร็จแล้ว ปิดรอบ</button>
+          <button type="button" class="btn btn-outline-warning text-dark w-100 fw-bold py-2 rounded-3" onclick="chooseCloseAudit('PAUSED')"><i class="bi bi-pause-circle me-1"></i> ยังไม่เสร็จ ออกก่อน</button>
+          <button type="button" class="btn btn-link text-muted w-100 p-0 text-decoration-none small" onclick="chooseCloseAudit('CANCEL')">กลับไปนับต่อ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Camera Scanner Modal ===== -->
   <div class="modal fade" id="scanModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
@@ -608,12 +643,12 @@
     const EXP_LABEL = 'EXP Date / Lot No.';
     // ปฏิทิน: ไม่ใช้ locale ไทย เพื่อให้ปีแสดงเป็น ค.ศ. เสมอ
     const FP_OPT = { dateFormat: 'd/m/Y', allowInput: true, disableMobile: true };
-    function emptyData() { return { products: [], uniqueProducts: [], history: [], auditReportData: [], masterRows: [], summary: {}, historyTruncated: false }; }
+    function emptyData() { return { products: [], uniqueProducts: [], history: [], auditReportData: [], auditSessions: [], masterRows: [], summary: {}, historyTruncated: false }; }
     let globalData = emptyData();
     let prodIndex = {};
     let authToken = '';
     let loggedInUser = { name: '', role: '' };
-    let pModal, auditConfirmModal, editRowModalInstance;
+    let pModal, auditConfirmModal, editRowModalInstance, closeAuditModal, closeAuditAction = null;
     let fpickrAuditMfd, fpickrAuditExp, fpickrMoveMfd, fpickrMoveExp;
     let stockStatusChartInstance = null;
     let currentAuditSession = { active: false, user: '', role: '', row: '' };
@@ -1044,7 +1079,10 @@
     }
     function navigateToTab(tabId) {
       const currentTab = document.querySelector('.tab-pane.show.active');
-      if (currentTab && currentTab.id === 'tab-audit' && tabId !== 'tab-audit' && currentAuditSession.active) endAuditSessionDirectly();
+      if (currentTab && currentTab.id === 'tab-audit' && tabId !== 'tab-audit' && currentAuditSession.active) {
+        askCloseAudit(choice => { closeAuditSession(choice); navigateToTab(tabId); });
+        return;   // ถ้าเลือก "กลับไปนับต่อ" จะอยู่หน้าเดิม
+      }
       showTab(tabId);
       if (tabId === 'tab-move') {
         if (!isWH()) {
@@ -1074,6 +1112,7 @@
       pModal = new bootstrap.Modal($id('productModal'));
       auditConfirmModal = new bootstrap.Modal($id('auditStartConfirmModal'));
       editRowModalInstance = new bootstrap.Modal($id('editRowModal'));
+      closeAuditModal = new bootstrap.Modal($id('auditCloseModal'));
 
       fpickrAuditMfd = flatpickr('#aMFDDate', Object.assign({ onChange: updateAuditRoundBadge }, FP_OPT));
       fpickrAuditExp = flatpickr('#aExpDate', Object.assign({ onChange: updateAuditRoundBadge }, FP_OPT));
@@ -1277,19 +1316,50 @@
         return loadAllData();
       }).catch(errToast).finally(hideGlobalLoader);
     }
+
+    // ---- แจ้งเริ่ม / จบการนับของแต่ละ Row (บันทึกลงชีท AuditSessions) ----
+    function notifyAuditSession(ev, status) {
+      const s = currentAuditSession;
+      gs('logAuditSession', { reqId: newReqId(), locationRow: s.row, event: ev, status: status || '', items: s.count || 0 })
+        .then(res => { showToast(res.message, 'success'); loadAllDataSilent(); })
+        .catch(errToast);
+    }
+    function sendAuditEnd(status) {
+      if (currentAuditSession.active && !currentAuditSession.ended) { currentAuditSession.ended = true; notifyAuditSession('END', status); }
+    }
+
     function startAuditSessionConfirmed() {
       auditConfirmModal.hide();
       const row = normalizeRowName(tsAuditRowSetup.getValue());
-      currentAuditSession = { active: true, user: loggedInUser.name, role: loggedInUser.role, row: row };
+      currentAuditSession = { active: true, user: loggedInUser.name, role: loggedInUser.role, row: row, count: 0, ended: false };
       $id('sessionRowDisplay').innerText = row; $id('sessionRoleBadge').innerText = currentAuditSession.role;
       $id('auditSetupBox').style.display = 'none'; $id('auditCountingBox').style.display = 'block';
-      resetAuditProductFields(); showToast('เข้าสู่รอบการตรวจนับ [' + row + ']', 'success');
+      resetAuditProductFields(); notifyAuditSession('START');
     }
-    function endAuditSessionDirectly() {
+
+    // ถามก่อนปิดรอบ: onChoose(choice) ถูกเรียกเมื่อเลือก DONE หรือ PAUSED เท่านั้น
+    function askCloseAudit(onChoose) {
+      closeAuditAction = onChoose;
+      $id('closeRowText').innerText = currentAuditSession.row;
+      $id('closeCountText').innerText = currentAuditSession.count || 0;
+      closeAuditModal.show();
+    }
+    function chooseCloseAudit(choice) {
+      closeAuditModal.hide();
+      const fn = closeAuditAction; closeAuditAction = null;
+      if (choice !== 'CANCEL' && fn) fn(choice);
+    }
+    function closeAuditSession(choice) {
+      sendAuditEnd(choice);
       currentAuditSession.active = false;
       $id('auditCountingBox').style.display = 'none'; $id('auditSetupBox').style.display = 'block';
-      resetAuditProductFields(); showToast('ออกจากรอบการตรวจนับ', 'success');
+      resetAuditProductFields();
     }
+    // ปุ่ม "ออกจากรอบนี้"
+    function endAuditSessionDirectly() {
+      askCloseAudit(choice => closeAuditSession(choice));
+    }
+
     function resetAuditProductFields() {
       ['aBarcodeStr', 'aCartons', 'aPacks', 'aPieces', 'aNote'].forEach(id => $id(id).value = '');
       if (fpickrAuditMfd) fpickrAuditMfd.clear();
@@ -1349,15 +1419,18 @@
       calculateAuditUnits();
     }
 
+    // ปุ่ม "บันทึก & สิ้นสุดการนับ"
     function triggerAuditFinishSubmit() {
       const barcode = $id('aBarcodeStr').value.trim();
       let total = 0;
       try { total = readQtyFields('a').reduce((s, v) => s + v, 0); } catch (e) { showToast(e.message, 'error'); return; }
-      if (!barcode || total === 0) { endAuditSessionDirectly(); return; }
-      handleAuditSubmit(new Event('submit'), 'FINISH');
+      askCloseAudit(choice => {
+        if (!barcode || total === 0) { closeAuditSession(choice); return; }
+        handleAuditSubmit(new Event('submit'), 'FINISH', choice);
+      });
     }
 
-    function handleAuditSubmit(e, actionType) {
+    function handleAuditSubmit(e, actionType, closeStatus) {
       if (e) e.preventDefault();
       if (!currentAuditSession.active) { showToast('เริ่มต้นรอบก่อน', 'error'); return; }
       const barcode = $id('aBarcodeStr').value.trim();
@@ -1371,9 +1444,10 @@
       const payload = { reqId: newReqId(), locationRow: currentAuditSession.row, barcode: barcode, mfdDate: mfd, expDate: exp, cartons: vals[0], packs: vals[1], pieces: vals[2], note: $id('aNote').value.trim() };
       setAuditSaving(true);
       gs('recordAudit', payload).then(res => {
+        currentAuditSession.count = (currentAuditSession.count || 0) + 1;
         showToast(res.message, 'success');
         resetAuditProductFields();
-        if (actionType === 'FINISH') { currentAuditSession.active = false; endAuditSessionQuiet(); }
+        if (actionType === 'FINISH') { sendAuditEnd(closeStatus || 'DONE'); currentAuditSession.active = false; endAuditSessionQuiet(); }
         else { const bc = $id('aBarcodeStr'); if (bc) bc.focus(); }
         loadAllDataSilent();
       }).catch(errToast).finally(() => setAuditSaving(false));
@@ -1506,7 +1580,24 @@
       return applySort(list.filter(r => [r.row, r.barcode, r.name, r.brand, r.expDate, r.mfdDate, r.noteSummary].some(v => String(v).toLowerCase().includes(q))), 'audit');
     }
 
-    function filterAuditReport() { try { renderAuditReportTable(auditFiltered()); } catch (e) { console.error(e); } }
+    // ตารางประวัติเริ่ม-จบการนับของแต่ละ Row (กรองตาม Row ที่เลือก)
+    function renderAuditSessions() {
+      let list = globalData.auditSessions || [];
+      if (selectedAuditRow !== 'ALL') list = list.filter(s => normalizeRowName(s.row) === normalizeRowName(selectedAuditRow));
+      $set('sessionLogBody', list.length ? list.map(s => {
+        const isStart = s.event === 'START';
+        const evBadge = isStart ? '<span class="badge bg-primary">เริ่มนับ</span>'
+          : (s.status === 'PAUSED' ? '<span class="badge bg-warning text-dark">ออกก่อน (ยังไม่เสร็จ)</span>' : '<span class="badge bg-success">ปิดรอบ (เสร็จ)</span>');
+        return '<tr><td><small class="text-muted">' + esc(s.time) + '</small></td>' +
+          '<td class="text-center"><span class="badge badge-row">' + esc(s.row) + '</span></td>' +
+          '<td class="text-center">' + (Number(s.round) === 1 ? 'รอบ 1 (WH)' : 'รอบ ' + esc(s.round)) + '</td>' +
+          '<td class="text-center">' + evBadge + '</td>' +
+          '<td><b>' + esc(s.user) + '</b></td>' +
+          '<td class="text-center">' + (isStart ? '-' : esc(s.items)) + '</td>' +
+          '<td class="text-center">' + (isStart || s.minutes === '' ? '-' : esc(s.minutes)) + '</td></tr>';
+      }).join('') : '<tr><td colspan="7" class="text-center py-3 text-muted">ยังไม่มีบันทึก</td></tr>');
+    }
+    function filterAuditReport() { try { renderAuditReportTable(auditFiltered()); renderAuditSessions(); } catch (e) { console.error(e); } }
     const filterAuditReportDebounced = debounce(filterAuditReport);
 
     function renderStockTable(products) {
